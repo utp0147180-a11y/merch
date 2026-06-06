@@ -79,7 +79,7 @@ export async function saveOrder(
       user_id: savedUser.id,
       total,
       shipping,
-      status: 'pending',
+      status: 'pendiente',
     })
     .select()
     .single();
