@@ -85,10 +85,12 @@ export default function App() {
     else { setCartOpen(false); setCheckoutOpen(true); }
   };
 
-  const handleOrderComplete = async (order: Order) => {
-    setLastOrder(order);
-    setCartItems([]);
-    setCheckoutOpen(false);
+  const handleOrderComplete = (order) => {
+  console.log('Pedido creado:', order);
+
+  // ❌ NO cierres el modal aquí
+  // setCheckoutOpen(false);
+};
 
     // Send email notification (simulated - would need Edge Function for production)
     console.log('Order sent to:', ORDER_EMAIL);
