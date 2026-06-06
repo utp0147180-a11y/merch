@@ -85,10 +85,12 @@ export default function App() {
     else { setCartOpen(false); setCheckoutOpen(true); }
   };
 
-  const handleOrderComplete = (order) => {
+  import { Order } from '../types';
+
+const handleOrderComplete = (order: Order) => {
   console.log('Pedido creado:', order);
 
-  // ❌ NO cierres el modal aquí
+  // NO cierres el modal aquí
   // setCheckoutOpen(false);
 };
 
