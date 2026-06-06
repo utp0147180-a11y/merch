@@ -34,18 +34,3 @@ export interface Order {
   id: string;
   orderNumber: string;
   userId: string;
-  items: OrderItem[];
-  total: number;
-  shipping: number;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered';
-  createdAt: string;
-}
-
-export interface OrderItem {
-  productId: number;
-  name: string;
-  price: number;
-  quantity: number;
-  color: string;
-  size?: string;
-}
