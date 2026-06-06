@@ -8,9 +8,8 @@ import Reviews from './components/Reviews';
 import AuthModal from './components/AuthModal';
 import CheckoutModal from './components/CheckoutModal';
 import TeddyBearLogo from './components/TeddyBearLogo';
-import { products, FREE_SHIPPING_THRESHOLD, ORDER_EMAIL } from './data';
+import { products, FREE_SHIPPING_THRESHOLD } from './data';
 import { CartItem, Product, User, Order } from './types';
-import { TrendingUp, Zap, Truck, Gift, Sparkles, Instagram, ArrowRight } from 'lucide-react';
 
 export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
@@ -18,26 +17,15 @@ export default function App() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [activeCategory, setActiveCategory] = useState('Todo');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('featured');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1500);
+    const timer = setTimeout(() => setLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    const savedUser = localStorage.getItem('merchRay_user');
-    if (savedUser) setUser(JSON.parse(savedUser));
-  }, []);
-
-  useEffect(() => {
-    if (user) localStorage.setItem('merchRay_user', JSON.stringify(user));
-    else localStorage.removeItem('merchRay_user');
-  }, [user]);
 
   const filtered = useMemo(() => {
     let list = products;
@@ -48,9 +36,10 @@ export default function App() {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q)
       );
     }
 
@@ -115,17 +104,8 @@ export default function App() {
     }
   };
 
-  // ✅ AQUÍ ESTABA TU ERROR
   const handleOrderComplete = (order: Order) => {
     console.log('Pedido creado:', order);
-
-    setLastOrder(order);
-
-    // ❌ NO cierres checkout aquí
-    // setCheckoutOpen(false);
-
-    console.log('Order sent to:', ORDER_EMAIL);
-    console.log('Order details:', order);
   };
 
   const cartCount = cartItems.reduce((s, i) => s + i.quantity, 0);
@@ -153,6 +133,18 @@ export default function App() {
       />
 
       <Hero />
+
+      <section className="py-10">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-4">
+          {filtered.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={addToCart}
+            />
+          ))}
+        </div>
+      </section>
 
       {/* MODALS */}
       <Cart
