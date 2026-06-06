@@ -10,7 +10,33 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+console.log('SUPABASE URL:', supabaseUrl);
+console.log('SUPABASE URL:', supabaseUrl);
+console.log('SUPABASE KEY EXISTS:', !!supabaseKey);
+
 export async function saveUser(user: Omit<User, 'id' | 'createdAt'>) {
+  const { data: existingUser, error: findError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', user.email)
+    .maybeSingle();
+
+  if (findError) {
+    console.error('Error finding user:', findError);
+    throw findError;
+  }
+
+  if (existingUser) {
+    return {
+      id: existingUser.id,
+      fullName: existingUser.full_name,
+      phone: existingUser.phone,
+      email: existingUser.email,
+      address: existingUser.address,
+      createdAt: existingUser.created_at,
+    } as User;
+  }
+
   const { data, error } = await supabase
     .from('users')
     .insert({
@@ -20,29 +46,10 @@ export async function saveUser(user: Omit<User, 'id' | 'createdAt'>) {
       address: user.address,
     })
     .select()
-    .maybeSingle();
+    .single();
 
   if (error) {
-    console.error('Error saving user:', error);
-    // If user already exists, fetch them
-    if (error.code === '23505') {
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select()
-        .eq('email', user.email)
-        .maybeSingle();
-
-      if (existingUser) {
-        return {
-          id: existingUser.id,
-          fullName: existingUser.full_name,
-          phone: existingUser.phone,
-          email: existingUser.email,
-          address: existingUser.address,
-          createdAt: existingUser.created_at,
-        } as User;
-      }
-    }
+    console.error('Error creating user:', error);
     throw error;
   }
 
@@ -56,6 +63,31 @@ export async function saveUser(user: Omit<User, 'id' | 'createdAt'>) {
   } as User;
 }
 
+export async function getNextOrderNumber() {
+  const { data: counter, error: readError } = await supabase
+    .from('order_counters')
+    .select('*')
+    .eq('id', 'orders')
+    .single();
+
+  if (readError) {
+    throw readError;
+  }
+
+  const nextValue = Number(counter.value) + 1;
+
+  const { error: updateError } = await supabase
+    .from('order_counters')
+    .update({ value: nextValue })
+    .eq('id', 'orders');
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  return `#${String(nextValue).padStart(4, '0')}`;
+}
+
 export async function saveOrder(
   orderNumber: string,
   user: User,
@@ -63,7 +95,6 @@ export async function saveOrder(
   total: number,
   shipping: number
 ) {
-  // First save the user
   const savedUser = await saveUser({
     fullName: user.fullName,
     phone: user.phone,
@@ -71,11 +102,13 @@ export async function saveOrder(
     address: user.address,
   });
 
-  // Then save the order
+  const generatedOrderNumber = await getNextOrderNumber();
+  console.log('GENERATED ORDER NUMBER:', generatedOrderNumber);
+
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
-      order_number: orderNumber,
+      order_number: generatedOrderNumber,
       user_id: savedUser.id,
       total,
       shipping,
@@ -84,9 +117,11 @@ export async function saveOrder(
     .select()
     .single();
 
-  if (orderError) throw orderError;
+  if (orderError) {
+    console.error('Error creating order:', orderError);
+    throw orderError;
+  }
 
-  // Then save the order items
   const orderItems = items.map((item) => ({
     order_id: order.id,
     product_id: item.id,
@@ -97,9 +132,14 @@ export async function saveOrder(
     size: item.selectedSize || null,
   }));
 
-  const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+  const { error: itemsError } = await supabase
+    .from('order_items')
+    .insert(orderItems);
 
-  if (itemsError) throw itemsError;
+  if (itemsError) {
+    console.error('Error creating order items:', itemsError);
+    throw itemsError;
+  }
 
   return {
     id: order.id,
@@ -131,5 +171,6 @@ export async function getOrdersByUser(userId: string) {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
+
   return data;
 }
