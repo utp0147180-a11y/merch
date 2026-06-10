@@ -8,8 +8,8 @@ import Reviews from '../components/Reviews';
 import AuthModal from '../components/AuthModal';
 import CheckoutModal from '../components/CheckoutModal';
 import TeddyBearLogo from '../components/TeddyBearLogo';
-import { products, FREE_SHIPPING_THRESHOLD, ORDER_EMAIL } from '../data';
-import { CartItem, Product, User, Order } from '../types';
+import { products, FREE_SHIPPING_THRESHOLD } from '../data';
+import { CartItem, Product, User } from '../types';
 import { TrendingUp, Zap, Truck, Gift, Sparkles, Instagram, ArrowRight } from 'lucide-react';
 
 export default function Home() {
@@ -18,7 +18,6 @@ export default function Home() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [activeCategory, setActiveCategory] = useState('Todo');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('featured');
@@ -84,15 +83,6 @@ export default function Home() {
     else { setCartOpen(false); setCheckoutOpen(true); }
   };
 
-  const handleOrderComplete = async (order: Order) => {
-    setLastOrder(order);
-    setCartItems([]);
-    setCheckoutOpen(false);
-
-    // Send email notification (simulated - would need Edge Function for production)
-    console.log('Order sent to:', ORDER_EMAIL);
-    console.log('Order details:', order);
-  };
 
   const cartCount = cartItems.reduce((s, i) => s + i.quantity, 0);
 
@@ -345,7 +335,13 @@ export default function Home() {
       {/* Modals */}
       <Cart isOpen={cartOpen} onClose={() => setCartOpen(false)} items={cartItems} onUpdateQuantity={updateQuantity} onRemove={removeItem} onCheckout={handleCheckout} user={user} />
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} user={user} onLogin={handleLogin} onLogout={handleLogout} />
-      <CheckoutModal isOpen={checkoutOpen} onClose={() => setCheckoutOpen(false)} items={cartItems} user={user!} onOrderComplete={handleOrderComplete} />
+     <CheckoutModal
+  isOpen={checkoutOpen}
+  onClose={() => setCheckoutOpen(false)}
+  items={cartItems}
+  user={user!}
+  clearCart={() => setCartItems([])}
+/>
       <WhatsAppButton />
     </div>
   );
