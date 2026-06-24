@@ -27,7 +27,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState('featured');
 
 
-  // LOAD PRODUCTS (SIN JOIN)
+  // LOAD PRODUCTS
   const fetchProducts = async () => {
 
     const { data: productsData, error: productsError } = await supabase
@@ -36,9 +36,12 @@ export default function Home() {
       .eq('active', true)
       .order('created_at', { ascending: false });
 
-    const { data: variantsData } = await supabase
+    const { data: variantsData, error: variantsError } = await supabase
       .from('product_variants')
       .select('*');
+
+    console.log("PRODUCTS:", productsData);
+    console.log("VARIANTS:", variantsData);
 
     if (productsError) {
       console.log(productsError);
@@ -54,6 +57,8 @@ export default function Home() {
         (v: any) => v.product_id === p.id
       )
     }));
+
+    console.log("MERGED PRODUCTS:", merged);
 
     setProducts(merged);
     setLoading(false);
@@ -79,7 +84,6 @@ export default function Home() {
   }, [user]);
 
 
-  // FILTERS
   const filtered = useMemo(() => {
 
     let list = [...products];
@@ -109,7 +113,6 @@ export default function Home() {
   }, [products, activeCategory, searchQuery, sortBy]);
 
 
-  // CART
   const addToCart = (
     product: Product,
     variant?: { color: string; size: string }
@@ -177,7 +180,6 @@ export default function Home() {
 
       <Hero />
 
-      {/* PRODUCTS */}
       <section className="py-10">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
 
