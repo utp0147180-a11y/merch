@@ -62,23 +62,17 @@ export default function Products() {
 
   const fetchProducts = async () => {
 
-    const { data } = await supabase
-      .from("products")
-      .select(`
-        *,
-        product_variants (*)
-      `)
-      .order(
-        "created_at",
-        {
-          ascending:false
-        }
-      );
+  const { data } = await supabase
+    .from("products")
+    .select(`
+      *,
+      product_variants (*)
+    `)
+    .order("created_at", { ascending: false });
 
 
-    setProducts(data || []);
-
-  };
+  setProducts(data || []);
+};
 
 
 
