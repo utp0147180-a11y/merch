@@ -3,6 +3,7 @@ import Home from './pages/Home';
 import Admin from './pages/Admin';
 import Orders from './pages/Admin/Orders';
 import Products from './pages/Admin/Products';
+import Products from './pages/Admin/Products';
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/admin/orders" element={<Orders />} />
+      <Route path="/admin/products" element={<Products />} />
       <Route path="/admin/products" element={<Products />} />
     </Routes>
   );
