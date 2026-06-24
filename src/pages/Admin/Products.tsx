@@ -186,10 +186,12 @@ export default function Products() {
 
 
 
-      await supabase
-      .from("product_variants")
-      .delete()
-      .eq("product_id",editing.id);
+      const { error: deleteError } = await supabase
+  .from("product_variants")
+  .delete()
+  .eq("product_id", editing.id);
+
+console.log("DELETE VARIANTS:", deleteError);
 
 
     }
@@ -198,23 +200,21 @@ export default function Products() {
 
     if(form.variants.length){
 
-      await supabase
-      .from("product_variants")
-      .insert(
-
-        form.variants.map((v:any)=>({
-
-          product_id:productId,
-          color:v.color,
-          size:v.size,
-          stock:Number(v.stock)
+      const { data: insertedVariants, error: variantError } = await supabase
+  .from("product_variants")
+  .insert(
+    form.variants.map((v:any)=>({
+      product_id: productId,
+      color:v.color,
+      size:v.size,
+      stock:Number(v.stock)
 
         }))
+  )
+  .select();
 
-      );
-
-    }
-
+console.log("VARIANTS GUARDADAS:", insertedVariants);
+console.log("ERROR VARIANTS:", variantError);
 
     resetForm();
     fetchProducts();
