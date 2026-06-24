@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   price: number;
   originalPrice?: number;
+  original_price?: number;
   image: string;
   category: 'Ropa' | 'Belleza';
   colors: string[];
@@ -12,6 +13,8 @@ export interface Product {
   reviews: number;
   isNew?: boolean;
   isSale?: boolean;
+  is_new?: boolean;
+  is_sale?: boolean;
   description: string;
 }
 
