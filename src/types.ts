@@ -16,12 +16,22 @@ export interface Product {
   is_new?: boolean;
   is_sale?: boolean;
   description: string;
+
+  product_variants?: {
+    id: number;
+    color: string;
+    size: string;
+    price: number;
+    stock: number;
+    sku: string;
+  }[];
 }
 
 export interface CartItem extends Product {
   quantity: number;
   selectedColor: string;
   selectedSize?: string;
+  key?: string;
 }
 
 export interface User {
