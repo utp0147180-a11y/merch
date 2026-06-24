@@ -3,40 +3,76 @@ import { supabase } from "../../lib/supabase";
 
 export default function Products() {
 
-  const [products, setProducts] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Todas");
+  const categories = [
+    "Ropa",
+    "Belleza",
+    "Accesorios",
+    "Calzado",
+    "Ofertas"
+  ];
 
-  const [showForm, setShowForm] = useState(false);
+  const colors = [
+    "Negro",
+    "Blanco",
+    "Rojo",
+    "Rosa",
+    "Azul",
+    "Verde",
+    "Beige",
+    "Dorado"
+  ];
 
-  const [editing, setEditing] = useState<any>(null);
+  const sizes = [
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "Única"
+  ];
 
 
-  const [form, setForm] = useState<any>({
+  const [products,setProducts]=useState<any[]>([]);
+  const [search,setSearch]=useState("");
+  const [category,setCategory]=useState("Todas");
+
+  const [showForm,setShowForm]=useState(false);
+
+
+  const [form,setForm]=useState<any>({
     name:"",
     description:"",
     price:"",
     original_price:"",
     image:"",
     category:"",
-    stock:0,
     brand:"",
     sku:"",
-    colors:"",
-    sizes:"",
     is_sale:false,
     is_new:false,
-    featured:false
+    featured:false,
+    variants:[]
   });
 
 
 
-  const fetchProducts = async()=>{
+  const [variant,setVariant]=useState({
+    color:"",
+    size:"",
+    stock:0
+  });
+
+
+
+  const fetchProducts=async()=>{
 
     const {data,error}=await supabase
-      .from("products")
-      .select("*")
-      .order("created_at",{ascending:false});
+    .from("products")
+    .select(`
+      *,
+      product_variants(*)
+    `)
+    .order("created_at",{ascending:false});
 
 
     if(!error)
@@ -52,58 +88,60 @@ export default function Products() {
 
 
 
-  const saveProduct = async()=>{
+
+  const addVariant=()=>{
+
+    if(!variant.color) return;
 
 
-    const productData={
-
+    setForm({
       ...form,
+      variants:[
+        ...form.variants,
+        variant
+      ]
+    });
 
+
+    setVariant({
+      color:"",
+      size:"",
+      stock:0
+    });
+
+  };
+
+
+
+
+  const saveProduct=async()=>{
+
+
+    const {data,error}=await supabase
+    .from("products")
+    .insert({
+
+      name:form.name,
+      description:form.description,
       price:Number(form.price),
-
       original_price:
         form.original_price
         ? Number(form.original_price)
         : null,
 
-      stock:Number(form.stock),
+      image:form.image,
+      category:form.category,
 
-      colors:
-        form.colors
-        .split(",")
-        .map((x:string)=>x.trim()),
+      brand:form.brand,
+      sku:form.sku,
 
-      sizes:
-        form.sizes
-        .split(",")
-        .map((x:string)=>x.trim()),
+      is_sale:form.is_sale,
+      is_new:form.is_new,
+      featured:form.featured
 
-    };
-
-
-
-    let error;
-
-
-    if(editing){
-
-      const res=await supabase
-      .from("products")
-      .update(productData)
-      .eq("id",editing.id);
-
-      error=res.error;
-
-    }else{
-
-
-      const res=await supabase
-      .from("products")
-      .insert(productData);
-
-      error=res.error;
-
-    }
+    })
+    .select()
+    .single();
 
 
 
@@ -116,8 +154,29 @@ export default function Products() {
 
 
 
+    if(form.variants.length){
+
+
+      const variants=form.variants.map((v:any)=>({
+
+        product_id:data.id,
+        color:v.color,
+        size:v.size,
+        stock:Number(v.stock)
+
+      }));
+
+
+      await supabase
+      .from("product_variants")
+      .insert(variants);
+
+
+    }
+
+
+
     setShowForm(false);
-    setEditing(null);
 
     setForm({
       name:"",
@@ -126,31 +185,29 @@ export default function Products() {
       original_price:"",
       image:"",
       category:"",
-      stock:0,
       brand:"",
       sku:"",
-      colors:"",
-      sizes:"",
       is_sale:false,
       is_new:false,
-      featured:false
+      featured:false,
+      variants:[]
     });
 
 
     fetchProducts();
+
 
   };
 
 
 
 
+
   const deleteProduct=async(id:number)=>{
 
-    const ok=confirm(
-      "¿Eliminar producto?"
-    );
 
-    if(!ok)return;
+    if(!confirm("Eliminar producto?"))
+      return;
 
 
     await supabase
@@ -167,22 +224,25 @@ export default function Products() {
 
 
 
-  const filteredProducts=
-  products.filter(p=>{
-
-    const matchName=
-    p.name
-    .toLowerCase()
-    .includes(search.toLowerCase());
+  const filtered=products.filter(p=>{
 
 
-    const matchCategory=
-    category==="Todas"
-    ||
-    p.category===category;
+    return (
 
+      p.name
+      .toLowerCase()
+      .includes(search.toLowerCase())
 
-    return matchName && matchCategory;
+      &&
+
+      (
+        category==="Todas"
+        ||
+        p.category===category
+      )
+
+    );
+
 
   });
 
@@ -190,7 +250,8 @@ export default function Products() {
 
 
 
-  return (
+
+return (
 
 <div className="min-h-screen bg-[#FDF8F4] p-8">
 
@@ -201,48 +262,58 @@ Productos
 
 
 
-<div className="flex gap-3 mb-6">
-
 <button
+
 onClick={()=>setShowForm(true)}
-className="bg-[#6B4423] text-white px-5 py-2 rounded-lg"
+
+className="bg-[#6B4423] text-white px-5 py-2 rounded-lg mb-6"
+
 >
-+ Agregar producto
++ Nuevo producto
 </button>
 
 
+
+
+<div className="flex gap-3 mb-6">
+
 <input
-className="border rounded-lg px-3"
-placeholder="Buscar..."
+
+className="border p-2 rounded"
+
+placeholder="Buscar"
+
 value={search}
+
 onChange={e=>setSearch(e.target.value)}
+
 />
 
 
 <select
-className="border rounded-lg px-3"
+
+className="border p-2 rounded"
+
 onChange={e=>setCategory(e.target.value)}
+
 >
 
 <option>
 Todas
 </option>
 
-<option>
-Ropa
+
+{
+categories.map(c=>(
+
+<option key={c}>
+{c}
 </option>
 
-<option>
-Belleza
-</option>
-
-<option>
-Ofertas
-</option>
-
+))
+}
 
 </select>
-
 
 </div>
 
@@ -250,115 +321,202 @@ Ofertas
 
 
 
-{showForm && (
+{
+showForm &&
 
 <div className="bg-white p-6 rounded-xl shadow mb-8">
 
 
 <h2 className="text-xl font-bold mb-4">
-{editing ? "Editar producto":"Nuevo producto"}
+Nuevo producto
 </h2>
 
 
 
-{
-[
-"name",
-"description",
-"image",
-"category",
-"brand",
-"sku",
-"price",
-"original_price",
-"stock",
-"colors",
-"sizes"
+<input
+className="border p-2 w-full mb-2"
+placeholder="Nombre"
+onChange={e=>setForm({...form,name:e.target.value})}
+/>
 
-].map(field=>(
+
+
+<textarea
+className="border p-2 w-full mb-2"
+placeholder="Descripción"
+onChange={e=>setForm({...form,description:e.target.value})}
+/>
+
+
+
+
+<select
+
+className="border p-2 w-full mb-2"
+
+value={form.category}
+
+onChange={e=>setForm({...form,category:e.target.value})}
+
+>
+
+<option>
+Categoría
+</option>
+
+{
+categories.map(c=>(
+
+<option key={c}>
+{c}
+</option>
+
+))
+}
+
+</select>
+
+
 
 <input
-key={field}
-className="border p-2 rounded w-full mb-3"
-placeholder={field}
-value={form[field]}
-onChange={
-e=>setForm({
-...form,
-[field]:e.target.value
-})
-}
+className="border p-2 w-full mb-2"
+placeholder="Imagen URL"
+onChange={e=>setForm({...form,image:e.target.value})}
 />
+
+
+
+<input
+className="border p-2 w-full mb-2"
+placeholder="Precio"
+onChange={e=>setForm({...form,price:e.target.value})}
+/>
+
+
+
+
+<h3 className="font-bold mt-4">
+Variantes
+</h3>
+
+
+<div className="flex gap-2 mt-2">
+
+
+<select
+
+className="border p-2"
+
+value={variant.color}
+
+onChange={e=>setVariant({...variant,color:e.target.value})}
+
+>
+
+<option>
+Color
+</option>
+
+{
+colors.map(c=>(
+
+<option key={c}>
+{c}
+</option>
+
+))
+}
+
+</select>
+
+
+
+<select
+
+className="border p-2"
+
+value={variant.size}
+
+onChange={e=>setVariant({...variant,size:e.target.value})}
+
+>
+
+<option>
+Talla
+</option>
+
+{
+sizes.map(s=>(
+
+<option key={s}>
+{s}
+</option>
+
+))
+}
+
+</select>
+
+
+
+<input
+
+className="border p-2 w-24"
+
+type="number"
+
+placeholder="Stock"
+
+onChange={e=>setVariant({...variant,stock:Number(e.target.value)})}
+
+/>
+
+
+<button
+
+onClick={addVariant}
+
+className="bg-blue-600 text-white px-3 rounded"
+
+>
++
+</button>
+
+
+</div>
+
+
+
+
+{
+form.variants.map((v:any,i:number)=>(
+
+<p key={i} className="mt-2">
+
+{v.color} - {v.size} - Stock: {v.stock}
+
+</p>
 
 ))
 }
 
 
 
-
-<label>
-<input
-type="checkbox"
-checked={form.is_sale}
-onChange={e=>setForm({...form,is_sale:e.target.checked})}
-/>
- Oferta
-</label>
-
-
-<br/>
-
-
-<label>
-<input
-type="checkbox"
-checked={form.is_new}
-onChange={e=>setForm({...form,is_new:e.target.checked})}
-/>
- Nuevo
-</label>
-
-
-
-<br/>
-
-
-<label>
-<input
-type="checkbox"
-checked={form.featured}
-onChange={e=>setForm({...form,featured:e.target.checked})}
-/>
- Destacado
-</label>
-
-
-
-<div className="mt-4">
-
 <button
+
 onClick={saveProduct}
-className="bg-green-700 text-white px-5 py-2 rounded-lg"
+
+className="bg-green-700 text-white px-5 py-2 rounded mt-5"
+
 >
 Guardar
 </button>
 
 
-<button
-onClick={()=>setShowForm(false)}
-className="ml-3 bg-gray-500 text-white px-5 py-2 rounded-lg"
->
-Cancelar
-</button>
-
 
 </div>
 
-
-</div>
-
-)}
-
+}
 
 
 
@@ -368,68 +526,42 @@ Cancelar
 
 
 {
-filteredProducts.map(product=>(
-
+filtered.map(p=>(
 
 <div
-key={product.id}
-className="bg-white rounded-xl shadow p-4"
+key={p.id}
+className="bg-white p-4 rounded-xl shadow"
 >
 
 
 <img
-src={product.image}
-className="h-48 w-full object-cover rounded-lg"
+src={p.image}
+className="h-40 w-full object-cover rounded"
 />
 
 
 <h3 className="font-bold mt-3">
-{product.name}
+{p.name}
 </h3>
 
 
 <p>
-${product.price}
+${p.price}
 </p>
 
 
 <p>
-Stock: {product.stock}
-</p>
-
-
-<p>
-Categoría: {product.category}
+{p.category}
 </p>
 
 
 
 <button
-onClick={()=>{
 
-setEditing(product);
+onClick={()=>deleteProduct(p.id)}
 
-setForm({
-...product,
-colors:
-product.colors?.join(","),
-sizes:
-product.sizes?.join(",")
-});
+className="bg-red-600 text-white px-3 py-1 rounded mt-3"
 
-setShowForm(true);
-
-}}
-className="bg-blue-600 text-white px-3 py-1 rounded mt-3"
->
-Editar
-</button>
-
-
-
-<button
-onClick={()=>deleteProduct(product.id)}
-className="bg-red-600 text-white px-3 py-1 rounded mt-3 ml-2"
 >
 Eliminar
 </button>
@@ -438,10 +570,8 @@ Eliminar
 
 </div>
 
-
 ))
 }
-
 
 
 </div>
