@@ -102,28 +102,17 @@ export default function Orders() {
       </div>
 
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
 
             <h2 className="text-2xl font-bold text-[#6B4423] mb-4">
               Pedido {selectedOrder.order_number}
             </h2>
 
-            <p>
-              <b>Cliente:</b> {selectedOrder.users?.full_name}
-            </p>
-
-            <p>
-              <b>Email:</b> {selectedOrder.users?.email}
-            </p>
-
-            <p>
-              <b>Teléfono:</b> {selectedOrder.users?.phone}
-            </p>
-
-            <p>
-              <b>Dirección:</b> {selectedOrder.users?.address}
-            </p>
+            <p><b>Cliente:</b> {selectedOrder.users?.full_name}</p>
+            <p><b>Email:</b> {selectedOrder.users?.email}</p>
+            <p><b>Teléfono:</b> {selectedOrder.users?.phone}</p>
+            <p><b>Dirección:</b> {selectedOrder.users?.address}</p>
 
             <hr className="my-4" />
 
@@ -132,10 +121,7 @@ export default function Orders() {
             </h3>
 
             {selectedOrder.order_items?.map((item: any, index: number) => (
-              <div
-                key={index}
-                className="border-b pb-3 mb-3"
-              >
+              <div key={index} className="border-b pb-3 mb-3">
                 <p className="font-semibold">
                   {item.product_name}
                 </p>
@@ -162,11 +148,14 @@ export default function Orders() {
               <p className="font-bold text-lg">
                 Total del pedido: ${selectedOrder.total}
               </p>
+              <p className="text-sm text-gray-500">
+                Envío: ${selectedOrder.shipping}
+              </p>
             </div>
 
             <button
               onClick={() => setSelectedOrder(null)}
-              className="mt-5 bg-gray-800 text-white px-4 py-2 rounded-lg"
+              className="mt-5 bg-gray-800 text-white px-4 py-2 rounded-lg w-full"
             >
               Cerrar
             </button>
