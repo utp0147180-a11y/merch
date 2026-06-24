@@ -350,7 +350,7 @@ export default function Home() {
   items={cartItems}
   onUpdateQuantity={()=>{}}
   onRemove={()=>{}}
-  onCheckout={()=>{}}
+  onCheckout={()=>setCheckoutOpen(true)}
   user={user}
   onAuthOpen={()=>setAuthOpen(true)}
 />
