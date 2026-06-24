@@ -23,6 +23,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('featured');
   const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
 
   // Simulate loading animation
   useEffect(() => {
