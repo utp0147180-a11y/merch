@@ -3,11 +3,11 @@ import { supabase } from '../lib/supabase';
 
 import Header from '../components/Header';
 import Hero from '../components/Hero';
-import ProductCard from '../components/ProductCard';
 import Cart from '../components/Cart';
 import WhatsAppButton from '../components/WhatsAppButton';
 import AuthModal from '../components/AuthModal';
 import CheckoutModal from '../components/CheckoutModal';
+import ProductCard from '../components/ProductCard';
 
 import { CartItem, Product, User } from '../types';
 
@@ -29,84 +29,66 @@ export default function Home() {
   const [sortBy, setSortBy] = useState('featured');
 
 
-  // ==========================
-  // LOAD PRODUCTS + VARIANTS
-  // ==========================
-
   const fetchProducts = async () => {
 
-    const { data: productsData, error: productsError } = await supabase
+    const { data: productsData, error } = await supabase
       .from('products')
       .select('*')
       .eq('active', true)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending:false });
 
 
-    const { data: variantsData, error: variantsError } = await supabase
+    const { data: variantsData } = await supabase
       .from('product_variants')
       .select('*');
 
 
-    console.log("PRODUCTS:", productsData);
-    console.log("VARIANTS:", variantsData);
-
-
-    if (productsError || variantsError) {
-      console.log(productsError || variantsError);
+    if(error){
+      console.log(error);
       setLoading(false);
       return;
     }
 
 
-    const merged = (productsData || []).map((p:any) => {
+    const merged = (productsData || []).map((p:any)=>({
 
-      const variants = (variantsData || []).filter(
-        (v:any) => Number(v.product_id) === Number(p.id)
-      );
+      ...p,
 
+      colors: p.colors || [],
+      sizes: p.sizes || [],
 
-      return {
-        ...p,
+      product_variants:
+        (variantsData || []).filter(
+          (v:any)=>
+          Number(v.product_id) === Number(p.id)
+        )
 
-        // Para ProductCard
-        colors: [...new Set(variants.map((v:any)=>v.color))],
+    }));
 
-        sizes: [...new Set(variants.map((v:any)=>v.size))],
-
-        product_variants: variants
-      };
-
-    });
-
-
-    console.log("MERGED PRODUCTS:", merged);
 
     setProducts(merged);
     setLoading(false);
-
   };
 
 
-  useEffect(() => {
+  useEffect(()=>{
     fetchProducts();
-  }, []);
+  },[]);
 
 
+  useEffect(()=>{
 
-  // USER
+    const saved =
+      localStorage.getItem('merchRay_user');
 
-  useEffect(() => {
-
-    const savedUser = localStorage.getItem('merchRay_user');
-
-    if(savedUser){
-      setUser(JSON.parse(savedUser));
+    if(saved){
+      setUser(JSON.parse(saved));
     }
 
-  }, []);
+  },[]);
 
 
-  useEffect(() => {
+  useEffect(()=>{
 
     if(user){
       localStorage.setItem(
@@ -119,21 +101,14 @@ export default function Home() {
 
   },[user]);
 
-
-
-
-  // ==========================
-  // FILTERS
-  // ==========================
-
-  const filtered = useMemo(()=>{
+    const filtered = useMemo(()=>{
 
     let list = [...products];
 
 
     if(activeCategory !== 'Todo'){
       list = list.filter(
-        p=>p.category === activeCategory
+        p => p.category === activeCategory
       );
     }
 
@@ -178,28 +153,23 @@ export default function Home() {
 
 
 
-  // ==========================
-  // CART
-  // ==========================
-
-
   const addToCart = (
     product: Product,
     color: string,
     size?: string
-  )=>{
-
-
-    const key =
-    `${product.id}-${color}-${size || ''}`;
-
+  ) => {
 
 
     setCartItems(prev=>{
 
 
-      const exists = prev.find(
-        item=>item.key === key
+      const key =
+      `${product.id}-${color}-${size || ''}`;
+
+
+      const exists =
+      prev.find(
+        item => item.key === key
       );
 
 
@@ -208,12 +178,16 @@ export default function Home() {
         return prev.map(item=>
 
           item.key === key
+
           ?
+
           {
             ...item,
-            quantity:item.quantity+1
+            quantity:item.quantity + 1
           }
+
           :
+
           item
 
         );
@@ -227,7 +201,6 @@ export default function Home() {
         ...prev,
 
         {
-
           ...product,
 
           key,
@@ -242,29 +215,103 @@ export default function Home() {
 
       ];
 
-
     });
 
 
     setCartOpen(true);
+
+  };
+
+
+
+
+
+  const updateQuantity = (
+    id:number,
+    color:string,
+    delta:number
+  )=>{
+
+
+    setCartItems(prev=>
+
+      prev
+      .map(item=>{
+
+
+        if(
+          item.id === id &&
+          item.selectedColor === color
+        ){
+
+          return {
+
+            ...item,
+
+            quantity:
+            item.quantity + delta
+
+          };
+
+        }
+
+
+        return item;
+
+
+      })
+
+      .filter(
+        item=>item.quantity > 0
+      )
+
+    );
 
 
   };
 
 
 
+
+
+  const removeItem = (
+    id:number,
+    color:string
+  )=>{
+
+
+    setCartItems(prev=>
+
+      prev.filter(
+
+        item =>
+
+        !(
+          item.id === id &&
+          item.selectedColor === color
+        )
+
+      )
+
+    );
+
+
+  };
+
+
+
+
   const cartCount =
   cartItems.reduce(
-    (sum,item)=>sum+item.quantity,
+    (sum,item)=>sum + item.quantity,
     0
   );
 
 
 
-
   if(loading){
 
-    return(
+    return (
 
       <div className="fixed inset-0 flex items-center justify-center bg-[#FDF8F4]">
 
@@ -279,9 +326,7 @@ export default function Home() {
   }
 
 
-
-
-  return (
+    return (
 
     <div className="min-h-screen bg-[#FDF8F4]">
 
@@ -314,14 +359,11 @@ export default function Home() {
 
       <section className="py-10">
 
-        <div className="
-        max-w-7xl mx-auto px-4
-        grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4
-        gap-5
-        ">
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
 
 
           {filtered.map(product=>(
+
 
             <ProductCard
 
@@ -332,6 +374,7 @@ export default function Home() {
               onAddToCart={addToCart}
 
             />
+
 
           ))}
 
@@ -345,15 +388,24 @@ export default function Home() {
 
 
       <Cart
-  isOpen={cartOpen}
-  onClose={()=>setCartOpen(false)}
-  items={cartItems}
-  onUpdateQuantity={()=>{}}
-  onRemove={()=>{}}
-  onCheckout={()=>setCheckoutOpen(true)}
-  user={user}
-  onAuthOpen={()=>setAuthOpen(true)}
-/>
+
+        isOpen={cartOpen}
+
+        onClose={()=>setCartOpen(false)}
+
+        items={cartItems}
+
+        onUpdateQuantity={updateQuantity}
+
+        onRemove={removeItem}
+
+        onCheckout={()=>setCheckoutOpen(true)}
+
+        user={user}
+
+        onAuthOpen={()=>setAuthOpen(true)}
+
+      />
 
 
 
@@ -390,6 +442,8 @@ export default function Home() {
         clearCart={()=>setCartItems([])}
 
       />
+
+
 
 
 
