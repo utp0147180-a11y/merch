@@ -48,14 +48,13 @@ export default function Orders() {
     fetchOrders();
   };
 
-   useEffect(() => {
+  useEffect(() => {
     fetchOrders();
   }, []);
 
   console.log("ORDERS:", orders);
 
   return (
-    <div className="min-h-screen bg-[#FDF8F4] p-8">
     <div className="min-h-screen bg-[#FDF8F4] p-8">
       <h1 className="text-3xl font-bold text-[#6B4423] mb-8">
         Pedidos
