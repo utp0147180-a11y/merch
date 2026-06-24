@@ -51,10 +51,12 @@ export default function Home() {
 
     const merged = (productsData || []).map((p: any) => ({
       ...p,
+
       colors: p.colors || [],
       sizes: p.sizes || [],
+
       product_variants: (variantsData || []).filter(
-        (v: any) => v.product_id === p.id
+        (v: any) => Number(v.product_id) === Number(p.id)
       )
     }));
 
@@ -94,6 +96,7 @@ export default function Home() {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
+
       list = list.filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q)
@@ -183,7 +186,7 @@ export default function Home() {
       <section className="py-10">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
 
-          {filtered.map(product => (
+          {products.map(product => (
             <div key={product.id} className="bg-white rounded-xl p-3 shadow">
 
               <img
