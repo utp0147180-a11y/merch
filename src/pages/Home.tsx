@@ -31,19 +31,18 @@ export default function Home() {
   const fetchProducts = async () => {
 
     const { data, error } = await supabase
-    .from('products')
-.select('*, product_variants:product_variants(*)')
-      .eq('active', true)
-      .order('created_at', { ascending: false });
+  .from('products')
+  .select('*, product_variants:product_variants(*)')
+  .eq('active', true)
+  .order('created_at', { ascending: false });
 
-    console.log("PRODUCTS SUPABASE:", data);
+console.log("PRODUCTS SUPABASE:", data);
 
-    if (error) {
-      console.log(error);
-      setLoading(false);
-      return;
-    }
-
+if (error) {
+  console.log(error);
+  setLoading(false);
+  return;
+}
     const normalized = (data || []).map((p: any) => ({
       ...p,
       colors: p.colors || [],
