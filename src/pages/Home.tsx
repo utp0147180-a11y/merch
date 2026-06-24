@@ -8,7 +8,8 @@ import Reviews from '../components/Reviews';
 import AuthModal from '../components/AuthModal';
 import CheckoutModal from '../components/CheckoutModal';
 import TeddyBearLogo from '../components/TeddyBearLogo';
-import { products, FREE_SHIPPING_THRESHOLD } from '../data';
+import { FREE_SHIPPING_THRESHOLD } from '../data';
+import { supabase } from '../lib/supabase';
 import { CartItem, Product, User } from '../types';
 import { TrendingUp, Zap, Truck, Gift, Sparkles, Instagram, ArrowRight } from 'lucide-react';
 
