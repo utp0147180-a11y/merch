@@ -628,46 +628,7 @@ image: form.image,
   setShowForm(true);
 }}
 
-                    name:p.name || "",
-
-                    description:p.description || "",
-
-                    price:p.price || "",
-
-                    image:p.image || "",
-
-                    category:p.category || "",
-
-                    brand:p.brand || "",
-
-                    sku:p.sku || "",
-
-                    has_variants:true,
-
-                    variants:p.product_variants || []
-
-                  });
-
-
-                  setShowForm(true);
-
-
-                }}
-
-                className="bg-blue-600 text-white px-3 py-1 rounded"
-
-              >
-                Editar
-              </button>
-
-
-
-
-
-              <button
-
-                onClick={()=>deleteProduct(p.id)}
-
+     
                 className="bg-red-600 text-white px-3 py-1 rounded"
 
               >
