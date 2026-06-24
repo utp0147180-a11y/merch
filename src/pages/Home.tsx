@@ -186,8 +186,13 @@ export default function Home() {
       <section className="py-10">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
 
-          {products.map(product => (
-            <div key={product.id} className="bg-white rounded-xl p-3 shadow">
+          {filtered.map(product => (
+  <ProductCard
+    key={product.id}
+    product={product}
+    onAddToCart={addToCart}
+  />
+))}
 
               <img
                 src={product.image}
