@@ -345,22 +345,15 @@ export default function Home() {
 
 
       <Cart
-
-        isOpen={cartOpen}
-
-        onClose={()=>setCartOpen(false)}
-
-        items={cartItems}
-
-        onUpdateQuantity={()=>{}}
-
-        onRemove={()=>{}}
-
-        onCheckout={()=>{}}
-
-        user={user}
-
-      />
+  isOpen={cartOpen}
+  onClose={()=>setCartOpen(false)}
+  items={cartItems}
+  onUpdateQuantity={()=>{}}
+  onRemove={()=>{}}
+  onCheckout={()=>{}}
+  user={user}
+  onAuthOpen={()=>setAuthOpen(true)}
+/>
 
 
 
