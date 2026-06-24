@@ -17,30 +17,46 @@ export default function Products() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      setProducts(data || []);
-    } else {
-      console.log(error);
-    }
-  };
-
-  const createProduct = async () => {
-    const { error } = await supabase
-      .from("products")
-      .insert({
-        name,
-        description,
-        price,
-        original_price: originalPrice || null,
-        image,
-        category,
-        is_sale: !!originalPrice,
-      });
-
     if (error) {
       console.log(error);
       return;
     }
+
+    setProducts(data || []);
+  };
+
+
+  const createProduct = async () => {
+
+    const { data, error } = await supabase
+      .from("products")
+      .insert([
+        {
+          name: name,
+          description: description,
+          price: Number(price),
+          original_price: originalPrice
+            ? Number(originalPrice)
+            : null,
+          image: image,
+          category: category,
+          is_sale: originalPrice ? true : false,
+        }
+      ])
+      .select();
+
+
+    if (error) {
+      console.log("ERROR GUARDANDO:", error);
+      alert(error.message);
+      return;
+    }
+
+
+    console.log("PRODUCTO CREADO:", data);
+
+    alert("Producto guardado correctamente");
+
 
     setName("");
     setDescription("");
@@ -52,9 +68,11 @@ export default function Products() {
     fetchProducts();
   };
 
+
   useEffect(() => {
     fetchProducts();
   }, []);
+
 
   return (
     <div className="min-h-screen bg-[#FDF8F4] p-8">
@@ -64,12 +82,12 @@ export default function Products() {
       </h1>
 
 
-      {/* CREAR PRODUCTO */}
       <div className="bg-white p-6 rounded-xl shadow mb-8">
 
         <h2 className="text-xl font-bold mb-4">
           Nuevo producto
         </h2>
+
 
         <input
           className="border p-2 rounded w-full mb-3"
@@ -78,6 +96,7 @@ export default function Products() {
           onChange={(e)=>setName(e.target.value)}
         />
 
+
         <textarea
           className="border p-2 rounded w-full mb-3"
           placeholder="Descripción"
@@ -85,19 +104,22 @@ export default function Products() {
           onChange={(e)=>setDescription(e.target.value)}
         />
 
+
         <input
           className="border p-2 rounded w-full mb-3"
-          placeholder="Categoría (ropa, maquillaje...)"
+          placeholder="Categoría"
           value={category}
           onChange={(e)=>setCategory(e.target.value)}
         />
 
+
         <input
           className="border p-2 rounded w-full mb-3"
-          placeholder="Precio actual"
+          placeholder="Precio"
           value={price}
           onChange={(e)=>setPrice(e.target.value)}
         />
+
 
         <input
           className="border p-2 rounded w-full mb-3"
@@ -105,6 +127,7 @@ export default function Products() {
           value={originalPrice}
           onChange={(e)=>setOriginalPrice(e.target.value)}
         />
+
 
         <input
           className="border p-2 rounded w-full mb-3"
@@ -124,10 +147,11 @@ export default function Products() {
       </div>
 
 
-      {/* LISTA */}
+
       <div className="grid md:grid-cols-3 gap-5">
 
         {products.map((product)=>(
+
           <div
             key={product.id}
             className="bg-white rounded-xl shadow p-4"
@@ -140,17 +164,21 @@ export default function Products() {
               />
             )}
 
+
             <h3 className="font-bold text-lg">
               {product.name}
             </h3>
+
 
             <p>
               Categoría: {product.category}
             </p>
 
+
             <p className="font-bold">
               ${product.price}
             </p>
+
 
             {product.is_sale && (
               <p className="text-red-500">
@@ -159,6 +187,7 @@ export default function Products() {
             )}
 
           </div>
+
         ))}
 
       </div>
