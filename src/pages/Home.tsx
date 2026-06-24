@@ -33,9 +33,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from('products')
       .select(`
-        *,
-        product_variants (*)
-      `)
+.select('*, product_variants(*)')
       .eq('active', true)
       .order('created_at', { ascending: false });
 
