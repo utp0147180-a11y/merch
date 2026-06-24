@@ -127,27 +127,42 @@ export default function Orders() {
 
             <hr className="my-4" />
 
-            <h3 className="font-bold mb-2">
+            <h3 className="font-bold mb-3">
               Productos:
             </h3>
 
             {selectedOrder.order_items?.map((item: any, index: number) => (
-              <div key={index} className="mb-2">
-                <p>
+              <div
+                key={index}
+                className="border-b pb-3 mb-3"
+              >
+                <p className="font-semibold">
                   {item.product_name}
                 </p>
 
                 <p className="text-sm text-gray-600">
-                  Cantidad: {item.quantity} |
-                  Color: {item.color} |
-                  Talla: {item.size}
+                  Cantidad: {item.quantity}
+                </p>
+
+                <p className="text-sm text-gray-600">
+                  Precio unitario: ${item.price}
+                </p>
+
+                <p className="font-medium">
+                  Subtotal: ${item.price * item.quantity}
+                </p>
+
+                <p className="text-sm text-gray-600">
+                  Color: {item.color} | Talla: {item.size}
                 </p>
               </div>
             ))}
 
-            <p className="font-bold mt-4">
-              Total: ${selectedOrder.total}
-            </p>
+            <div className="mt-4 border-t pt-3">
+              <p className="font-bold text-lg">
+                Total del pedido: ${selectedOrder.total}
+              </p>
+            </div>
 
             <button
               onClick={() => setSelectedOrder(null)}
