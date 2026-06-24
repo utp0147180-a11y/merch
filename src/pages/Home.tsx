@@ -26,10 +26,51 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
 
   // Simulate loading animation
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
+ useEffect(() => {
+
+  const fetchProducts = async () => {
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("active", true)
+      .order("created_at", { ascending: false });
+
+
+    if (error) {
+      console.log(error);
+      setLoading(false);
+      return;
+    }
+
+
+    const formattedProducts = (data || []).map((p:any) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      originalPrice: p.original_price,
+      image: p.image,
+      category: p.category,
+      badge: p.badge,
+      rating: p.rating,
+      reviews: p.reviews,
+      isSale: p.is_sale,
+      isNew: p.is_new,
+      colors: p.colors || [],
+      sizes: p.sizes || [],
+    }));
+
+
+    setProducts(formattedProducts);
+    setLoading(false);
+
+  };
+
+
+  fetchProducts();
+
+}, []);
 
   // Load user from localStorage
   useEffect(() => {
