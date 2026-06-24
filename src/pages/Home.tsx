@@ -7,7 +7,7 @@ import Cart from '../components/Cart';
 import WhatsAppButton from '../components/WhatsAppButton';
 import AuthModal from '../components/AuthModal';
 import CheckoutModal from '../components/CheckoutModal';
-
+import ProductCard from '../components/ProductCard';
 import { CartItem, Product, User } from '../types';
 
 export default function Home() {
