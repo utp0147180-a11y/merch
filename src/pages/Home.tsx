@@ -39,16 +39,16 @@ export default function Home() {
       .eq('active', true)
       .order('created_at', { ascending: false });
 
+    console.log("PRODUCTS SUPABASE:", data);
+
     if (error) {
       console.log(error);
       setLoading(false);
       return;
     }
 
-    // 🔥 NORMALIZAR DATOS (CLAVE PARA QUE FUNCIONE TODO)
     const normalized = (data || []).map((p: any) => ({
       ...p,
-
       colors: p.colors || [],
       sizes: p.sizes || [],
       product_variants: p.product_variants || []
@@ -64,7 +64,6 @@ export default function Home() {
   }, []);
 
 
-  // USER
   useEffect(() => {
     const savedUser = localStorage.getItem('merchRay_user');
     if (savedUser) setUser(JSON.parse(savedUser));
@@ -79,7 +78,6 @@ export default function Home() {
   }, [user]);
 
 
-  // FILTERS
   const filtered = useMemo(() => {
 
     let list = [...products];
@@ -90,7 +88,6 @@ export default function Home() {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-
       list = list.filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q)
@@ -110,7 +107,6 @@ export default function Home() {
   }, [products, activeCategory, searchQuery, sortBy]);
 
 
-  // CART
   const addToCart = (
     product: Product,
     variant?: { color: string; size: string }
@@ -178,7 +174,6 @@ export default function Home() {
 
       <Hero />
 
-      {/* PRODUCTS */}
       <section className="py-10">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
 
