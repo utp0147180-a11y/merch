@@ -10,6 +10,7 @@ interface CartProps {
   onRemove: (id: number, color: string) => void;
   onCheckout: () => void;
   user: User | null;
+  onAuthOpen: () => void;
 }
 
 export default function Cart({
