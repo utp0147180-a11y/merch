@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import Admin from './pages/Admin';
-import Orders from './pages/admin/Orders';
+import Orders from './pages/Admin/Orders';
 
 export default function App() {
   return (
