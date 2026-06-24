@@ -3,18 +3,13 @@ import { supabase } from '../lib/supabase';
 
 import Header from '../components/Header';
 import Hero from '../components/Hero';
-import ProductCard from '../components/ProductCard';
 import Cart from '../components/Cart';
 import WhatsAppButton from '../components/WhatsAppButton';
-import Reviews from '../components/Reviews';
 import AuthModal from '../components/AuthModal';
 import CheckoutModal from '../components/CheckoutModal';
-import TeddyBearLogo from '../components/TeddyBearLogo';
 
-import { FREE_SHIPPING_THRESHOLD } from '../data';
 import { CartItem, Product, User } from '../types';
 
-import { TrendingUp, Zap, Truck, Gift, Sparkles, Instagram, ArrowRight } from 'lucide-react';
 
 export default function Home() {
 
@@ -32,177 +27,386 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('featured');
 
-  // 🔥 LOAD PRODUCTS FROM SUPABASE
+
+  // LOAD PRODUCTS
   const fetchProducts = async () => {
-    const { data } = await supabase
+
+    const { data, error } = await supabase
       .from('products')
       .select(`
         *,
         product_variants (*)
       `)
       .eq('active', true)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending:false });
 
-    setProducts(data || []);
+
+    if (error) {
+      console.log(error);
+      setLoading(false);
+      return;
+    }
+
+
+    setProducts((data as Product[]) || []);
+
     setLoading(false);
   };
+
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
+
+
   // USER
   useEffect(() => {
+
     const savedUser = localStorage.getItem('merchRay_user');
-    if (savedUser) setUser(JSON.parse(savedUser));
-  }, []);
 
-  useEffect(() => {
-    if (user) localStorage.setItem('merchRay_user', JSON.stringify(user));
-    else localStorage.removeItem('merchRay_user');
-  }, [user]);
-
-  // FILTERS
-  const filtered = useMemo(() => {
-    let list = products;
-
-    if (activeCategory !== 'Todo') {
-      list = list.filter(p => p.category === activeCategory);
+    if(savedUser){
+      setUser(JSON.parse(savedUser));
     }
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+  }, []);
+
+
+  useEffect(() => {
+
+    if(user){
+      localStorage.setItem(
+        'merchRay_user',
+        JSON.stringify(user)
+      );
+    }else{
+      localStorage.removeItem('merchRay_user');
+    }
+
+  },[user]);
+
+
+
+  // FILTERS
+  const filtered = useMemo(()=>{
+
+    let list = [...products];
+
+
+    if(activeCategory !== 'Todo'){
+      list = list.filter(
+        p => p.category === activeCategory
       );
     }
 
-    if (sortBy === 'price-asc') list = [...list].sort((a, b) => a.price - b.price);
-    if (sortBy === 'price-desc') list = [...list].sort((a, b) => b.price - a.price);
+
+    if(searchQuery.trim()){
+
+      const q = searchQuery.toLowerCase();
+
+      list = list.filter(
+        p =>
+        p.name.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q)
+      );
+
+    }
+
+
+    if(sortBy === 'price-asc'){
+      list.sort(
+        (a,b)=>a.price-b.price
+      );
+    }
+
+
+    if(sortBy === 'price-desc'){
+      list.sort(
+        (a,b)=>b.price-a.price
+      );
+    }
+
 
     return list;
-  }, [products, activeCategory, searchQuery, sortBy]);
+
+
+  },[
+    products,
+    activeCategory,
+    searchQuery,
+    sortBy
+  ]);
+
+
+
 
   // CART
-  const addToCart = (product: any, variant?: any) => {
-    setCartItems(prev => {
-      const key = `${product.id}-${variant?.color || ''}-${variant?.size || ''}`;
+  const addToCart = (
+    product:Product,
+    variant?:{
+      color:string;
+      size:string;
+    }
+  )=>{
 
-      const exists = prev.find(i => i.key === key);
 
-      if (exists) {
-        return prev.map(i =>
-          i.key === key ? { ...i, quantity: i.quantity + 1 } : i
+    setCartItems(prev=>{
+
+
+      const key =
+      `${product.id}-${variant?.color || ''}-${variant?.size || ''}`;
+
+
+      const exists =
+      prev.find(
+        item=>item.key === key
+      );
+
+
+      if(exists){
+
+        return prev.map(item=>
+
+          item.key === key
+
+          ? {
+              ...item,
+              quantity:item.quantity + 1
+            }
+
+          : item
+
         );
+
       }
 
+
+
       return [
+
         ...prev,
+
         {
+
           ...product,
+
           key,
-          quantity: 1,
-          selectedColor: variant?.color,
-          selectedSize: variant?.size,
+
+          quantity:1,
+
+          selectedColor:
+          variant?.color || '',
+
+          selectedSize:
+          variant?.size || ''
+
         }
+
       ];
+
+
     });
 
+
     setCartOpen(true);
+
   };
 
-  const cartCount = cartItems.reduce((s, i) => s + i.quantity, 0);
 
-  if (loading) {
-    return (
+
+  const cartCount =
+  cartItems.reduce(
+    (sum,item)=>sum+item.quantity,
+    0
+  );
+
+
+
+  if(loading){
+
+    return(
       <div className="fixed inset-0 flex items-center justify-center bg-[#FDF8F4]">
-        <p className="text-[#6B4423]">Cargando...</p>
+
+        <p className="text-[#6B4423]">
+          Cargando...
+        </p>
+
       </div>
     );
+
   }
 
+
+
   return (
+
     <div className="min-h-screen bg-[#FDF8F4]">
 
+
       <Header
+
         cartCount={cartCount}
-        onCartOpen={() => setCartOpen(true)}
+
+        onCartOpen={()=>setCartOpen(true)}
+
         activeCategory={activeCategory}
+
         onCategoryChange={setActiveCategory}
+
         searchQuery={searchQuery}
+
         onSearchChange={setSearchQuery}
-        onAuthOpen={() => setAuthOpen(true)}
+
+        onAuthOpen={()=>setAuthOpen(true)}
+
         user={user}
+
       />
+
 
       <Hero />
 
-      {/* PRODUCTS */}
+
+
       <section className="py-10">
+
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
 
-          {filtered.map(product => (
-            <div key={product.id} className="bg-white rounded-xl p-3 shadow">
 
-              <img
-                src={product.image}
-                className="h-40 w-full object-cover rounded-lg"
-              />
+        {filtered.map(product=>(
 
-              <h3 className="font-bold mt-2">{product.name}</h3>
 
-              <p className="text-sm text-gray-500">{product.category}</p>
+          <div
+          key={product.id}
+          className="bg-white rounded-xl p-3 shadow"
+          >
 
-              <p className="font-bold text-[#6B4423]">${product.price}</p>
 
-              {/* COLORS */}
-              <div className="flex gap-2 mt-2 flex-wrap">
-                {product.product_variants?.map((v: any, i: number) => (
-                  <button
-                    key={i}
-                    onClick={() => addToCart(product, v)}
-                    className="text-xs px-2 py-1 border rounded"
-                  >
-                    {v.color} - {v.size}
-                  </button>
-                ))}
-              </div>
+            <img
+            src={product.image}
+            className="h-40 w-full object-cover rounded-lg"
+            />
+
+
+            <h3 className="font-bold mt-2">
+              {product.name}
+            </h3>
+
+
+            <p className="text-sm text-gray-500">
+              {product.category}
+            </p>
+
+
+            <p className="font-bold text-[#6B4423]">
+              ${product.price}
+            </p>
+
+
+
+            <div className="flex gap-2 mt-2 flex-wrap">
+
+
+            {product.product_variants?.map((v,index)=>(
+
+
+              <button
+
+              key={index}
+
+              onClick={()=>
+                addToCart(product,v)
+              }
+
+              className="text-xs px-2 py-1 border rounded"
+
+              >
+
+                {v.color} - {v.size}
+
+
+              </button>
+
+
+            ))}
+
 
             </div>
-          ))}
+
+
+
+          </div>
+
+
+        ))}
+
 
         </div>
+
       </section>
 
+
+
+
       <Cart
+
         isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
+
+        onClose={()=>setCartOpen(false)}
+
         items={cartItems}
-        onUpdateQuantity={() => {}}
-        onRemove={() => {}}
-        onCheckout={() => {}}
+
+        onUpdateQuantity={()=>{}}
+
+        onRemove={()=>{}}
+
+        onCheckout={()=>{}}
+
         user={user}
+
       />
+
+
+
 
       <AuthModal
+
         isOpen={authOpen}
-        onClose={() => setAuthOpen(false)}
+
+        onClose={()=>setAuthOpen(false)}
+
         user={user}
+
         onLogin={setUser}
-        onLogout={() => setUser(null)}
+
+        onLogout={()=>setUser(null)}
+
       />
 
+
+
+
       <CheckoutModal
+
         isOpen={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
+
+        onClose={()=>setCheckoutOpen(false)}
+
         items={cartItems}
+
         user={user!}
-        clearCart={() => setCartItems([])}
+
+        clearCart={()=>setCartItems([])}
+
       />
+
+
 
       <WhatsAppButton />
 
+
     </div>
+
   );
+
 }
