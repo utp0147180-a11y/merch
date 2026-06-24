@@ -16,7 +16,10 @@ export default function Admin() {
             Administrar catálogo de productos.
           </p>
 
-          <button className="bg-[#6B4423] text-white px-4 py-2 rounded-lg">
+          <button
+            onClick={() => window.location.href = "/admin/products"}
+            className="bg-[#6B4423] text-white px-4 py-2 rounded-lg"
+          >
             Gestionar
           </button>
         </div>
