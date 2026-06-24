@@ -580,11 +580,24 @@ export default function Products() {
 
               <button
 
-                onClick={()=>{
+                onClick={() => {
+  setEditing(p);
 
-                  setEditing(p);
+  setForm({
+    name: p.name,
+    description: p.description || "",
+    price: p.price,
+    original_price: p.original_price || "",
+    image: p.image,
+    category: p.category,
+    brand: p.brand || "",
+    sku: p.sku || "",
+    has_variants: true,
+    variants: p.product_variants || []
+  });
 
-                  setForm({
+  setShowForm(true);
+}}
 
                     name:p.name || "",
 
