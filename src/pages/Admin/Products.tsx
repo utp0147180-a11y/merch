@@ -323,6 +323,17 @@ export default function Products() {
             }
 
           />
+          <input
+  placeholder="Precio oferta"
+  value={form.original_price}
+  className="border p-2 w-full mb-2"
+  onChange={(e) =>
+    setForm({
+      ...form,
+      original_price: e.target.value
+    })
+  }
+/>
 
 
 
