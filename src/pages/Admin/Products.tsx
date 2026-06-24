@@ -512,18 +512,35 @@ image: form.image,
 
 
 
-            {form.variants.map(
-              (v:any,i:number)=>(
+            {form.variants.map((v: any, i: number) => (
+  <div 
+    key={i}
+    className="flex justify-between items-center border p-2 mt-2 rounded"
+  >
 
-              <p key={i}>
-                {v.color} - {v.size} - Stock:{v.stock}
-              </p>
+    <span>
+      {v.color} - {v.size} - Stock: {v.stock}
+    </span>
 
-            ))}
+    <button
+      onClick={() =>
+        setForm({
+          ...form,
+          variants: form.variants.filter(
+            (_: any, index: number) => index !== i
+          )
+        })
+      }
+      className="bg-red-600 text-white px-2 rounded"
+    >
+      X
+    </button>
+
+  </div>
+))}
 
 
-          </div>
-
+       
 
 
 
