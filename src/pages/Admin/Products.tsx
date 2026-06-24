@@ -157,8 +157,11 @@ image: form.image,
 
         name:form.name,
         description:form.description,
-        price:Number(form.price),
-        image:form.image,
+        price: Number(form.price),
+original_price: form.original_price
+  ? Number(form.original_price)
+  : null,
+image: form.image,
         category:form.category,
         brand:form.brand,
         sku:form.sku
