@@ -11,13 +11,14 @@ export default function Products() {
     name: "",
     description: "",
     price: "",
+    original_price: "",
     image: "",
     category: "",
     brand: "",
     sku: "",
     has_variants: true,
     variants: []
-  });
+});
 
   const [variant, setVariant] = useState({
     color: "",
