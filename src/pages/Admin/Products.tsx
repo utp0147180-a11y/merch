@@ -531,7 +531,7 @@ ${p.price}
 <button
 
 onClick={()=>{
-
+console.log("EDIT PRODUCT:", p);
 setEditing(p);
 
 setForm({
