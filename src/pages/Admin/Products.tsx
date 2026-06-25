@@ -68,7 +68,7 @@ export default function Products() {
         product_variants (*)
       `)
       .order("created_at", { ascending: false });
-console.log("PRODUCTS ADMIN:", data);
+      console.log("PRODUCTS ADMIN:", data);
 
     if(error){
       console.log(error);
