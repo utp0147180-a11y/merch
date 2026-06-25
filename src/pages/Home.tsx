@@ -11,9 +11,7 @@ import ProductCard from '../components/ProductCard';
 
 import { CartItem, Product, User } from '../types';
 
-
 export default function Home() {
-
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,430 +26,242 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('featured');
 
-
+  // Fetch products with variants
   const fetchProducts = async () => {
-
     const { data: productsData, error } = await supabase
       .from('products')
       .select('*')
       .eq('active', true)
-      .order('created_at', { ascending:false });
-
+      .order('created_at', { ascending: false });
 
     const { data: variantsData } = await supabase
       .from('product_variants')
       .select('*');
 
-
-    if(error){
+    if (error) {
       console.log(error);
       setLoading(false);
       return;
     }
 
-
-    const merged = (productsData || []).map((p:any)=>({
-
+    const merged = (productsData || []).map((p: any) => ({
       ...p,
-
       colors: p.colors || [],
       sizes: p.sizes || [],
-
-      product_variants:
-        (variantsData || []).filter(
-          (v:any)=>
-          Number(v.product_id) === Number(p.id)
-        )
-
+      product_variants: (variantsData || []).filter(
+        (v: any) => Number(v.product_id) === Number(p.id)
+      ),
     }));
-
 
     setProducts(merged);
     setLoading(false);
   };
 
-
-  useEffect(()=>{
+  useEffect(() => {
     fetchProducts();
-  },[]);
+  }, []);
 
-
-  useEffect(()=>{
-
-    const saved =
-      localStorage.getItem('merchRay_user');
-
-    if(saved){
+  useEffect(() => {
+    const saved = localStorage.getItem('merchRay_user');
+    if (saved) {
       setUser(JSON.parse(saved));
     }
+  }, []);
 
-  },[]);
-
-
-  useEffect(()=>{
-
-    if(user){
-      localStorage.setItem(
-        'merchRay_user',
-        JSON.stringify(user)
-      );
-    }else{
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('merchRay_user', JSON.stringify(user));
+    } else {
       localStorage.removeItem('merchRay_user');
     }
+  }, [user]);
 
-  },[user]);
-
-    const filtered = useMemo(()=>{
-
+  // Filter products
+  const filtered = useMemo(() => {
     let list = [...products];
 
-
-    if(activeCategory !== 'Todo'){
-      list = list.filter(
-        p => p.category === activeCategory
-      );
+    if (activeCategory !== 'Todo') {
+      list = list.filter((p) => p.category === activeCategory);
     }
 
-
-    if(searchQuery.trim()){
-
+    if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-
       list = list.filter(
-        p =>
-        p.name.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
-      );
-
-    }
-
-
-    if(sortBy === 'price-asc'){
-      list.sort(
-        (a,b)=>a.price-b.price
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q)
       );
     }
 
-
-    if(sortBy === 'price-desc'){
-      list.sort(
-        (a,b)=>b.price-a.price
-      );
+    if (sortBy === 'price-asc') {
+      list.sort((a, b) => a.price - b.price);
     }
 
+    if (sortBy === 'price-desc') {
+      list.sort((a, b) => b.price - a.price);
+    }
 
     return list;
+  }, [products, activeCategory, searchQuery, sortBy]);
 
+  // Get variant stock
+  const getVariantStock = (productId: number, color: string, size?: string): number => {
+    const product = products.find((p) => p.id === productId);
+    if (!product?.product_variants) return 10;
 
-  },[
-    products,
-    activeCategory,
-    searchQuery,
-    sortBy
-  ]);
+    const variant = product.product_variants.find((v) => {
+      const colorMatch = v.color === color;
+      const sizeMatch = size ? v.size === size : !v.size;
+      return colorMatch && sizeMatch;
+    });
 
+    return variant?.stock ?? 0;
+  };
 
-
-
+  // Add to cart with variant support
   const addToCart = (
     product: Product,
     color: string,
-    size?: string
+    size?: string,
+    variantId?: number
   ) => {
+    const key = `${product.id}-${color}-${size || ''}`;
+    const stock = getVariantStock(product.id, color, size);
 
+    setCartItems((prev) => {
+      const exists = prev.find((item) => item.key === key);
 
-    setCartItems(prev=>{
-
-
-      const key =
-      `${product.id}-${color}-${size || ''}`;
-
-
-      const exists =
-      prev.find(
-        item => item.key === key
-      );
-
-
-      if(exists){
-
-        return prev.map(item=>
-
+      if (exists) {
+        // Check if adding one more exceeds stock
+        if (exists.quantity >= stock) {
+          return prev;
+        }
+        return prev.map((item) =>
           item.key === key
-
-          ?
-
-          {
-            ...item,
-            quantity:item.quantity + 1
-          }
-
-          :
-
-          item
-
+            ? { ...item, quantity: Math.min(item.quantity + 1, stock) }
+            : item
         );
-
       }
 
-
-
       return [
-
         ...prev,
-
         {
           ...product,
-
           key,
-
-          quantity:1,
-
-          selectedColor:color,
-
-          selectedSize:size || ''
-
-        }
-
+          quantity: 1,
+          selectedColor: color,
+          selectedSize: size || '',
+          selectedVariantId: variantId,
+        },
       ];
-
     });
 
-
     setCartOpen(true);
-
   };
 
-
-
-
-
-  const updateQuantity = (
-    id:number,
-    color:string,
-    delta:number
-  )=>{
-
-
-    setCartItems(prev=>
-
+  // Update quantity with stock check
+  const updateQuantity = (id: number, color: string, size: string | undefined, delta: number) => {
+    setCartItems((prev) =>
       prev
-      .map(item=>{
-
-
-        if(
-          item.id === id &&
-          item.selectedColor === color
-        ){
-
-          return {
-
-            ...item,
-
-            quantity:
-            item.quantity + delta
-
-          };
-
-        }
-
-
-        return item;
-
-
-      })
-
-      .filter(
-        item=>item.quantity > 0
-      )
-
+        .map((item) => {
+          if (
+            item.id === id &&
+            item.selectedColor === color &&
+            item.selectedSize === size
+          ) {
+            const stock = getVariantStock(id, color, size);
+            const newQty = item.quantity + delta;
+            return {
+              ...item,
+              quantity: Math.max(0, Math.min(newQty, stock)),
+            };
+          }
+          return item;
+        })
+        .filter((item) => item.quantity > 0)
     );
-
-
   };
 
-
-
-
-
-  const removeItem = (
-    id:number,
-    color:string
-  )=>{
-
-
-    setCartItems(prev=>
-
+  // Remove item
+  const removeItem = (id: number, color: string, size?: string) => {
+    setCartItems((prev) =>
       prev.filter(
-
-        item =>
-
-        !(
-          item.id === id &&
-          item.selectedColor === color
-        )
-
+        (item) =>
+          !(
+            item.id === id &&
+            item.selectedColor === color &&
+            item.selectedSize === size
+          )
       )
-
     );
-
-
   };
 
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-
-
-  const cartCount =
-  cartItems.reduce(
-    (sum,item)=>sum + item.quantity,
-    0
-  );
-
-
-
-  if(loading){
-
+  if (loading) {
     return (
-
       <div className="fixed inset-0 flex items-center justify-center bg-[#FDF8F4]">
-
-        <p className="text-[#6B4423]">
-          Cargando...
-        </p>
-
+        <p className="text-[#6B4423]">Cargando...</p>
       </div>
-
     );
-
   }
 
-
-    return (
-
+  return (
     <div className="min-h-screen bg-[#FDF8F4]">
-
-
       <Header
-
         cartCount={cartCount}
-
-        onCartOpen={()=>setCartOpen(true)}
-
+        onCartOpen={() => setCartOpen(true)}
         activeCategory={activeCategory}
-
         onCategoryChange={setActiveCategory}
-
         searchQuery={searchQuery}
-
         onSearchChange={setSearchQuery}
-
-        onAuthOpen={()=>setAuthOpen(true)}
-
+        onAuthOpen={() => setAuthOpen(true)}
         user={user}
-
       />
-
-
 
       <Hero />
 
-
-
       <section className="py-10">
-
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-
-
-          {filtered.map(product=>(
-
-
+          {filtered.map((product) => (
             <ProductCard
-
               key={product.id}
-
               product={product}
-
               onAddToCart={addToCart}
-
             />
-
-
           ))}
-
-
         </div>
-
       </section>
 
-
-
-
-
       <Cart
-
         isOpen={cartOpen}
-
-        onClose={()=>setCartOpen(false)}
-
+        onClose={() => setCartOpen(false)}
         items={cartItems}
-
+        products={products}
         onUpdateQuantity={updateQuantity}
-
         onRemove={removeItem}
-
-        onCheckout={()=>setCheckoutOpen(true)}
-
+        onCheckout={() => setCheckoutOpen(true)}
         user={user}
-
-        onAuthOpen={()=>setAuthOpen(true)}
-
+        onAuthOpen={() => setAuthOpen(true)}
       />
-
-
-
-
 
       <AuthModal
-
         isOpen={authOpen}
-
-        onClose={()=>setAuthOpen(false)}
-
+        onClose={() => setAuthOpen(false)}
         user={user}
-
         onLogin={setUser}
-
-        onLogout={()=>setUser(null)}
-
+        onLogout={() => setUser(null)}
       />
-
-
-
-
 
       <CheckoutModal
-
         isOpen={checkoutOpen}
-
-        onClose={()=>setCheckoutOpen(false)}
-
+        onClose={() => setCheckoutOpen(false)}
         items={cartItems}
-
         user={user!}
-
-        clearCart={()=>setCartItems([])}
-
+        clearCart={() => setCartItems([])}
       />
 
-
-
-
-
       <WhatsAppButton />
-
-
     </div>
-
   );
-
 }

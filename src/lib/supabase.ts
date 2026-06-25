@@ -10,10 +10,6 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-console.log('SUPABASE URL:', supabaseUrl);
-console.log('SUPABASE URL:', supabaseUrl);
-console.log('SUPABASE KEY EXISTS:', !!supabaseKey);
-
 export async function saveUser(user: Omit<User, 'id' | 'createdAt'>) {
   const { data: existingUser, error: findError } = await supabase
     .from('users')
@@ -88,6 +84,81 @@ export async function getNextOrderNumber() {
   return `#${String(nextValue).padStart(4, '0')}`;
 }
 
+// Find variant by product, color, and size
+async function findVariant(
+  productId: number,
+  color: string,
+  size?: string
+): Promise<number | null> {
+  const { data: variants, error } = await supabase
+    .from('product_variants')
+    .select('id')
+    .eq('product_id', productId)
+    .eq('color', color)
+    .eq('size', size || null)
+    .eq('active', true)
+    .limit(1);
+
+  if (error || !variants || variants.length === 0) {
+    return null;
+  }
+
+  return variants[0].id;
+}
+
+// Deduct stock from variant
+async function deductVariantStock(
+  variantId: number,
+  quantity: number
+): Promise<boolean> {
+  // Get current stock
+  const { data: variant, error: fetchError } = await supabase
+    .from('product_variants')
+    .select('stock')
+    .eq('id', variantId)
+    .single();
+
+  if (fetchError || !variant) {
+    console.error('Error fetching variant stock:', fetchError);
+    return false;
+  }
+
+  const newStock = Math.max(0, variant.stock - quantity);
+
+  const { error: updateError } = await supabase
+    .from('product_variants')
+    .update({ stock: newStock, updated_at: new Date().toISOString() })
+    .eq('id', variantId);
+
+  if (updateError) {
+    console.error('Error updating variant stock:', updateError);
+    return false;
+  }
+
+  return true;
+}
+
+// Deduct stock from product (legacy, for products without variants)
+async function deductProductStock(
+  productId: number,
+  quantity: number
+): Promise<void> {
+  const { data: product, error: fetchError } = await supabase
+    .from('products')
+    .select('stock')
+    .eq('id', productId)
+    .single();
+
+  if (fetchError || !product) return;
+
+  const newStock = Math.max(0, (product.stock || 0) - quantity);
+
+  await supabase
+    .from('products')
+    .update({ stock: newStock })
+    .eq('id', productId);
+}
+
 export async function saveOrder(
   orderNumber: string,
   user: User,
@@ -103,7 +174,6 @@ export async function saveOrder(
   });
 
   const generatedOrderNumber = await getNextOrderNumber();
-  console.log('GENERATED ORDER NUMBER:', generatedOrderNumber);
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -122,23 +192,42 @@ export async function saveOrder(
     throw orderError;
   }
 
-  const orderItems = items.map((item) => ({
-    order_id: order.id,
-    product_id: item.id,
-    product_name: item.name,
-    price: item.price,
-    quantity: item.quantity,
-    color: item.selectedColor,
-    size: item.selectedSize || null,
-  }));
+  // Find variants for each cart item
+  const orderItemsWithVariants = await Promise.all(
+    items.map(async (item) => {
+      const variantId = item.selectedVariantId || (await findVariant(item.id, item.selectedColor, item.selectedSize));
+      return {
+        order_id: order.id,
+        product_id: item.id,
+        product_name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        color: item.selectedColor,
+        size: item.selectedSize || null,
+        variant_id: variantId,
+      };
+    })
+  );
 
   const { error: itemsError } = await supabase
     .from('order_items')
-    .insert(orderItems);
+    .insert(orderItemsWithVariants);
 
   if (itemsError) {
     console.error('Error creating order items:', itemsError);
     throw itemsError;
+  }
+
+  // Deduct stock from variants
+  for (const item of items) {
+    const variantId = item.selectedVariantId || (await findVariant(item.id, item.selectedColor, item.selectedSize));
+
+    if (variantId) {
+      await deductVariantStock(variantId, item.quantity);
+    } else {
+      // Fallback to product stock if no variant
+      await deductProductStock(item.id, item.quantity);
+    }
   }
 
   return {
@@ -163,14 +252,111 @@ export async function saveOrder(
 export async function getOrdersByUser(userId: string) {
   const { data, error } = await supabase
     .from('orders')
-    .select(`
+    .select(
+      `
       *,
       order_items (*)
-    `)
+    `
+    )
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
 
   return data;
+}
+
+// Product management functions
+export async function fetchProductsWithVariants() {
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (productsError) throw productsError;
+
+  const { data: variants, error: variantsError } = await supabase
+    .from('product_variants')
+    .select('*');
+
+  if (variantsError) throw variantsError;
+
+  return (products || []).map((p) => ({
+    ...p,
+    product_variants: (variants || []).filter(
+      (v) => v.product_id === p.id
+    ),
+  }));
+}
+
+export async function fetchProductImages(productId: number) {
+  const { data, error } = await supabase
+    .from('product_images')
+    .select('*')
+    .eq('product_id', productId)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function createProductVariant(
+  productId: number,
+  variant: { color: string; size?: string; stock: number; sku?: string; price?: number }
+) {
+  const { data, error } = await supabase
+    .from('product_variants')
+    .insert({
+      product_id: productId,
+      color: variant.color,
+      size: variant.size || null,
+      stock: variant.stock,
+      sku: variant.sku || null,
+      price: variant.price || null,
+      active: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function updateProductVariant(
+  variantId: number,
+  updates: Partial<{ color: string; size: string; stock: number; sku: string; price: number; active: boolean }>
+) {
+  const { data, error } = await supabase
+    .from('product_variants')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', variantId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function deleteProductVariant(variantId: number) {
+  const { error } = await supabase
+    .from('product_variants')
+    .delete()
+    .eq('id', variantId);
+
+  if (error) throw error;
+}
+
+export async function deleteAllProductVariants(productId: number) {
+  const { error } = await supabase
+    .from('product_variants')
+    .delete()
+    .eq('product_id', productId);
+
+  if (error) throw error;
 }
