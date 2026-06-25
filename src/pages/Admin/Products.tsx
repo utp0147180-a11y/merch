@@ -200,26 +200,28 @@ console.log("DELETE VARIANTS:", deleteError);
 
     if(form.variants.length){
 
-      const { data: insertedVariants, error: variantError } = await supabase
-  .from("product_variants")
-  .insert(
-    form.variants.map((v:any)=>({
-      product_id: productId,
-      color:v.color,
-      size:v.size,
-      stock:Number(v.stock)
+  const { data: insertedVariants, error: variantError } = await supabase
+    .from("product_variants")
+    .insert(
+      form.variants.map((v:any)=>({
+        product_id: productId,
+        color: v.color,
+        size: v.size,
+        stock: Number(v.stock)
+      }))
+    )
+    .select();
 
-        }))
-  )
-  .select();
+  console.log("VARIANTS GUARDADAS:", insertedVariants);
+  console.log("ERROR VARIANTS:", variantError);
 
-console.log("VARIANTS GUARDADAS:", insertedVariants);
-console.log("ERROR VARIANTS:", variantError);
+}
 
-    resetForm();
-    fetchProducts();
 
-  };
+resetForm();
+fetchProducts();
+
+};
 
     const deleteProduct = async(id:number)=>{
 
