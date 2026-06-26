@@ -60,13 +60,7 @@ export default function CheckoutModal({
       setOrderNumber(number);
       setStep('success');
 
-      // Notify parent to refresh products
-      onOrderComplete?.();
-
-      // limpiar carrito después de mostrar success
-      setTimeout(() => {
-        clearCart?.();
-      }, 300);
+      // Note: Cart clearing happens only when user closes the confirmation
 
     } catch (err) {
       console.error('CHECKOUT ERROR:', err);
@@ -77,10 +71,14 @@ export default function CheckoutModal({
   };
 
   const handleClose = () => {
+    // If on success step, clear cart and notify parent on close
+    if (step === 'success') {
+      clearCart?.();
+      onOrderComplete?.();
+    }
     setStep('confirm');
     setOrderNumber('');
     setLoading(false);
-    clearCart?.();
     onClose();
   };
 
