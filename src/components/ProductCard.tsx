@@ -5,6 +5,9 @@ import { Product, ProductVariant } from '../types';
 interface ProductCardProps {
   product: Product;
   onAddToCart: (product: Product, color: string, size?: string, variantId?: number) => void;
+  isWishlisted?: boolean;
+  onWishlist?: () => void;
+  onQuickView?: () => void;
 }
 
 // Color mapping for visual display
@@ -38,8 +41,13 @@ const COLOR_MAP: Record<string, string> = {
   'Bronce': '#cd7f32',
 };
 
-export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
-  const [liked, setLiked] = useState(false);
+export default function ProductCard({
+  product,
+  onAddToCart,
+  isWishlisted = false,
+  onWishlist,
+  onQuickView,
+}: ProductCardProps) {
   const [added, setAdded] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -204,14 +212,17 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
 
         {/* Wishlist */}
         <button
-          onClick={() => setLiked(!liked)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onWishlist?.();
+          }}
           className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm ${
-            liked
+            isWishlisted
               ? 'bg-[#D4A59A] text-white scale-110'
               : 'bg-white/80 text-[#B89B8A] hover:bg-white hover:text-[#D4A59A] hover:scale-110'
           }`}
         >
-          <Heart size={14} fill={liked ? 'currentColor' : 'none'} />
+          <Heart size={14} fill={isWishlisted ? 'currentColor' : 'none'} />
         </button>
 
         {/* Quick view */}
@@ -220,7 +231,13 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
             hovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
         >
-          <button className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm text-[#6B4423] text-xs font-semibold px-5 py-2.5 rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuickView?.();
+            }}
+            className="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm text-[#6B4423] text-xs font-semibold px-5 py-2.5 rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all"
+          >
             <Eye size={12} />
             Vista rápida
           </button>

@@ -124,7 +124,7 @@ export default function Hero() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
             {[
-              { label: 'Envío Gratis', value: 'Desde $999' },
+              { label: 'Envío Gratis', value: 'En compras +$999 MXN' },
               { label: 'Pago Seguro', value: '100% Tranquilidad' },
               { label: 'Soporte WhatsApp', value: '24/7' },
               { label: 'Fácil Devolución', value: '30 días' },

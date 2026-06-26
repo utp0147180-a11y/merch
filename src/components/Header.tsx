@@ -1,21 +1,24 @@
 import { useState } from 'react';
-import { ShoppingBag, Search, Menu, X, Heart, User } from 'lucide-react';
-import { categories } from '../data';
+import { ShoppingBag, Search, Menu, X, Heart, User, Package } from 'lucide-react';
 import TeddyBearLogo from './TeddyBearLogo';
 
 interface HeaderProps {
   cartCount: number;
+  wishlistCount?: number;
   onCartOpen: () => void;
   activeCategory: string;
   onCategoryChange: (cat: string) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onAuthOpen: () => void;
-  user: { fullName: string } | null;
+  user: { fullName: string; id?: string } | null;
+  onOrdersOpen?: () => void;
+  onWishlistOpen?: () => void;
 }
 
 export default function Header({
   cartCount,
+  wishlistCount = 0,
   onCartOpen,
   activeCategory,
   onCategoryChange,
@@ -23,6 +26,8 @@ export default function Header({
   onSearchChange,
   onAuthOpen,
   user,
+  onOrdersOpen,
+  onWishlistOpen,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -57,20 +62,26 @@ export default function Header({
 
           {/* Center: Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-8">
-            {['Inicio', 'Ropa', 'Belleza', 'Ofertas', 'Nueva Colección'].map((item) => (
+            {[
+              { label: 'Inicio', key: 'Todo' },
+              { label: 'Ropa', key: 'Ropa' },
+              { label: 'Belleza', key: 'Belleza' },
+              { label: 'Accesorios', key: 'Accesorios' },
+              { label: 'Ofertas', key: 'Ofertas' },
+            ].map((item) => (
               <button
-                key={item}
-                onClick={() => onCategoryChange(item === 'Inicio' ? 'Todo' : item)}
+                key={item.key}
+                onClick={() => onCategoryChange(item.key)}
                 className={`text-sm tracking-wide font-medium transition-all duration-300 relative group ${
-                  activeCategory === item || (item === 'Inicio' && activeCategory === 'Todo')
+                  activeCategory === item.key
                     ? 'text-[#8B7355]'
                     : 'text-[#A08278] hover:text-[#8B7355]'
                 }`}
               >
-                {item}
+                {item.label}
                 <span
                   className={`absolute -bottom-1 left-0 h-0.5 bg-[#D4A59A] transition-all duration-300 ${
-                    activeCategory === item || (item === 'Inicio' && activeCategory === 'Todo')
+                    activeCategory === item.key
                       ? 'w-full'
                       : 'w-0 group-hover:w-full'
                   }`}
@@ -103,21 +114,37 @@ export default function Header({
               <Search size={20} strokeWidth={1.5} />
             </button>
 
-            {/* User */}
-            <button
-              onClick={onAuthOpen}
-              className="hidden sm:flex items-center gap-1.5 p-2.5 text-[#8B7355] hover:text-[#D4A59A] transition-colors"
-            >
-              <User size={20} strokeWidth={1.5} />
-              {user && (
-                <span className="text-xs font-medium hidden lg:hidden">{user.fullName.split(' ')[0]}</span>
-              )}
-            </button>
-
-            {/* Wishlist */}
-            <button className="hidden sm:flex p-2.5 text-[#8B7355] hover:text-[#D4A59A] transition-colors">
-              <Heart size={20} strokeWidth={1.5} />
-            </button>
+            {/* User Menu */}
+            {user ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={onOrdersOpen}
+                  className="hidden sm:flex items-center gap-1.5 p-2.5 text-[#8B7355] hover:text-[#D4A59A] transition-colors"
+                  title="Mis pedidos"
+                >
+                  <Package size={20} strokeWidth={1.5} />
+                </button>
+                <button
+                  onClick={onWishlistOpen}
+                  className="hidden sm:flex items-center gap-1.5 p-2.5 text-[#8B7355] hover:text-[#D4A59A] transition-colors relative"
+                  title="Favoritos"
+                >
+                  <Heart size={20} strokeWidth={1.5} />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-[#D4A59A] text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onAuthOpen}
+                className="hidden sm:flex items-center gap-1.5 p-2.5 text-[#8B7355] hover:text-[#D4A59A] transition-colors"
+              >
+                <User size={20} strokeWidth={1.5} />
+              </button>
+            )}
 
             {/* Cart */}
             <button
@@ -153,22 +180,59 @@ export default function Header({
         {/* Mobile Menu */}
         <div className={`lg:hidden overflow-hidden transition-all duration-300 ${menuOpen ? 'max-h-96 pb-4' : 'max-h-0'}`}>
           <nav className="flex flex-col gap-2 pt-2">
-            {['Inicio', 'Ropa', 'Belleza', 'Ofertas', 'Nueva Colección'].map((item) => (
+            {[
+              { label: 'Inicio', key: 'Todo' },
+              { label: 'Ropa', key: 'Ropa' },
+              { label: 'Belleza', key: 'Belleza' },
+              { label: 'Accesorios', key: 'Accesorios' },
+              { label: 'Ofertas', key: 'Ofertas' },
+            ].map((item) => (
               <button
-                key={item}
+                key={item.key}
                 onClick={() => {
-                  onCategoryChange(item === 'Inicio' ? 'Todo' : item);
+                  onCategoryChange(item.key);
                   setMenuOpen(false);
                 }}
                 className={`text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeCategory === item || (item === 'Inicio' && activeCategory === 'Todo')
+                  activeCategory === item.key
                     ? 'bg-[#D4A59A] text-white'
                     : 'text-[#8B7355] hover:bg-[#F9F5F1]'
                 }`}
               >
-                {item}
+                {item.label}
               </button>
             ))}
+
+            {/* Mobile user actions */}
+            {user && (
+              <>
+                <button
+                  onClick={() => {
+                    onOrdersOpen?.();
+                    setMenuOpen(false);
+                  }}
+                  className="text-left px-4 py-2.5 rounded-xl text-sm font-medium text-[#8B7355] hover:bg-[#F9F5F1] flex items-center gap-2"
+                >
+                  <Package size={18} />
+                  Mis Pedidos
+                </button>
+                <button
+                  onClick={() => {
+                    onWishlistOpen?.();
+                    setMenuOpen(false);
+                  }}
+                  className="text-left px-4 py-2.5 rounded-xl text-sm font-medium text-[#8B7355] hover:bg-[#F9F5F1] flex items-center gap-2"
+                >
+                  <Heart size={18} />
+                  Favoritos
+                  {wishlistCount > 0 && (
+                    <span className="bg-[#D4A59A] text-white text-[10px] px-2 py-0.5 rounded-full">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </button>
+              </>
+            )}
           </nav>
         </div>
       </div>

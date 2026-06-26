@@ -216,6 +216,16 @@ export const categories = [
   { name: 'Todo', icon: '✨' },
   { name: 'Ropa', icon: '👗' },
   { name: 'Belleza', icon: '💄' },
+  { name: 'Accesorios', icon: '👜' },
+  { name: 'Ofertas', icon: '🏷️' },
+];
+
+// Subcategories for Clothing
+export const clothingSubcategories = [
+  { name: 'Todo', label: 'Todo' },
+  { name: 'Women', label: 'Mujer' },
+  { name: 'Men', label: 'Hombre' },
+  { name: 'Kids', label: 'Niños' },
 ];
 
 export const WHATSAPP_NUMBER = '2451128441';
