@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { WishlistProvider, useWishlist } from '../contexts/WishlistContext';
 
@@ -13,12 +13,110 @@ import QuickViewModal from '../components/QuickViewModal';
 import WishlistModal from '../components/WishlistModal';
 import MyOrders from '../pages/MyOrders';
 
-import { CartItem, Product, User } from '../types';
+import { CartItem, Product, User, ProductWithVariants } from '../types';
 import { clothingSubcategories } from '../data';
 
+// Global product state for real-time updates
+let globalProducts: Product[] = [];
+const productSubscribers: Set<() => void> = new Set();
+
+export function notifyProductUpdate() {
+  productSubscribers.forEach((fn) => fn());
+}
+
+function useProducts() {
+  const [products, setProducts] = useState<Product[]>(globalProducts);
+  const [loading, setLoading] = useState(globalProducts.length === 0);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    const { data: productsData, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('active', true)
+      .order('created_at', { ascending: false });
+
+    const { data: variantsData } = await supabase
+      .from('product_variants')
+      .select('*');
+
+    const { data: imagesData } = await supabase
+      .from('product_images')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.log(error);
+      setLoading(false);
+      return;
+    }
+
+    const merged = (productsData || []).map((p: any) => ({
+      ...p,
+      colors: p.colors || [],
+      sizes: p.sizes || [],
+      product_variants: (variantsData || []).filter(
+        (v: any) => Number(v.product_id) === Number(p.id)
+      ),
+      product_images: (imagesData || []).filter(
+        (img: any) => Number(img.product_id) === Number(p.id)
+      ),
+    }));
+
+    globalProducts = merged;
+    setProducts(merged);
+    setLoading(false);
+  }, []);
+
+  // Subscribe to product updates
+  useEffect(() => {
+    const refresh = () => {
+      fetchProducts();
+    };
+    productSubscribers.add(refresh);
+    return () => {
+      productSubscribers.delete(refresh);
+    };
+  }, [fetchProducts]);
+
+  // Initial fetch
+  useEffect(() => {
+    if (globalProducts.length === 0) {
+      fetchProducts();
+    }
+  }, [fetchProducts]);
+
+  // Real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('products-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => fetchProducts()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'product_variants' },
+        () => fetchProducts()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'product_images' },
+        () => fetchProducts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchProducts]);
+
+  return { products, loading, refetch: fetchProducts };
+}
+
 function HomeContent() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { products, loading, refetch } = useProducts();
 
   const [cartOpen, setCartOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
@@ -36,48 +134,34 @@ function HomeContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('featured');
 
+  // Recently viewed products
+  const [recentlyViewed, setRecentlyViewed] = useState<number[]>([]);
+
   const {
     wishlist,
     wishlistProducts,
     addToWishlist,
     removeFromWishlist,
     isInWishlist,
+    refetchWishlist,
   } = useWishlist();
 
-  // Fetch products with variants
-  const fetchProducts = async () => {
-    setLoading(true);
-    const { data: productsData, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('active', true)
-      .order('created_at', { ascending: false });
-
-    const { data: variantsData } = await supabase
-      .from('product_variants')
-      .select('*');
-
-    if (error) {
-      console.log(error);
-      setLoading(false);
-      return;
-    }
-
-    const merged = (productsData || []).map((p: any) => ({
-      ...p,
-      colors: p.colors || [],
-      sizes: p.sizes || [],
-      product_variants: (variantsData || []).filter(
-        (v: any) => Number(v.product_id) === Number(p.id)
-      ),
-    }));
-
-    setProducts(merged);
-    setLoading(false);
-  };
-
+  // Load recently viewed from localStorage
   useEffect(() => {
-    fetchProducts();
+    const saved = localStorage.getItem('merchRay_recently_viewed');
+    if (saved) {
+      setRecentlyViewed(JSON.parse(saved));
+    }
+  }, []);
+
+  // Save recently viewed
+  const addToRecentlyViewed = useCallback((productId: number) => {
+    setRecentlyViewed((prev) => {
+      const filtered = prev.filter((id) => id !== productId);
+      const updated = [productId, ...filtered].slice(0, 10);
+      localStorage.setItem('merchRay_recently_viewed', JSON.stringify(updated));
+      return updated;
+    });
   }, []);
 
   useEffect(() => {
@@ -102,7 +186,6 @@ function HomeContent() {
     // Category filter (including Offers)
     if (activeCategory !== 'Todo') {
       if (activeCategory === 'Ofertas') {
-        // Show products on sale (original_price > price)
         list = list.filter((p) => p.original_price && p.original_price > p.price);
       } else {
         list = list.filter((p) => p.category === activeCategory);
@@ -147,90 +230,122 @@ function HomeContent() {
     return list;
   }, [products, activeCategory, activeSubcategory, searchQuery, sortBy]);
 
-  // Get variant stock
-  const getVariantStock = (productId: number, color: string, size?: string): number => {
-    const product = products.find((p) => p.id === productId);
-    if (!product?.product_variants) return 10;
+  // Get recently viewed products
+  const recentlyViewedProducts = useMemo(() => {
+    return recentlyViewed
+      .map((id) => products.find((p) => p.id === id))
+      .filter(Boolean) as Product[];
+  }, [recentlyViewed, products]);
 
-    const variant = product.product_variants.find((v) => {
-      const colorMatch = v.color === color;
-      const sizeMatch = size ? v.size === size : !v.size;
-      return colorMatch && sizeMatch;
-    });
+  // Get variant stock - always from current products state
+  const getVariantStock = useCallback(
+    (productId: number, color: string, size?: string): number => {
+      const product = products.find((p) => p.id === productId);
+      if (!product?.product_variants) return 0;
 
-    return variant?.stock ?? 0;
-  };
+      const variant = product.product_variants.find((v) => {
+        const colorMatch = v.color === color;
+        const sizeMatch = size ? v.size === size : !v.size;
+        return colorMatch && sizeMatch;
+      });
 
-  // Add to cart with variant support
-  const addToCart = (
-    product: Product,
-    color: string,
-    size?: string,
-    variantId?: number
-  ) => {
-    const key = `${product.id}-${color}-${size || ''}`;
-    const stock = getVariantStock(product.id, color, size);
+      return variant?.stock ?? 0;
+    },
+    [products]
+  );
 
-    setCartItems((prev) => {
-      const exists = prev.find((item) => item.key === key);
+  // Check if product/variant is in stock
+  const isInStock = useCallback(
+    (productId: number, color?: string, size?: string): boolean => {
+      const product = products.find((p) => p.id === productId);
+      if (!product) return false;
 
-      if (exists) {
-        if (exists.quantity >= stock) {
-          return prev;
-        }
-        return prev.map((item) =>
-          item.key === key
-            ? { ...item, quantity: Math.min(item.quantity + 1, stock) }
-            : item
-        );
+      if (color) {
+        return getVariantStock(productId, color, size) > 0;
       }
 
-      return [
-        ...prev,
-        {
-          ...product,
-          key,
-          quantity: 1,
-          selectedColor: color,
-          selectedSize: size || '',
-          selectedVariantId: variantId,
-        },
-      ];
-    });
+      // Check total stock across all variants or product stock
+      if (product.product_variants && product.product_variants.length > 0) {
+        return product.product_variants.some((v) => v.stock > 0);
+      }
 
-    setCartOpen(true);
-  };
+      return (product.stock || 0) > 0;
+    },
+    [products, getVariantStock]
+  );
+
+  // Add to cart with variant support
+  const addToCart = useCallback(
+    (product: Product, color: string, size?: string, variantId?: number) => {
+      const key = `${product.id}-${color}-${size || ''}`;
+      const currentStock = getVariantStock(product.id, color, size);
+
+      if (currentStock <= 0) {
+        alert('Este producto está agotado');
+        return;
+      }
+
+      setCartItems((prev) => {
+        const exists = prev.find((item) => item.key === key);
+
+        if (exists) {
+          if (exists.quantity >= currentStock) {
+            alert(`Solo hay ${currentStock} unidades disponibles`);
+            return prev;
+          }
+          return prev.map((item) =>
+            item.key === key
+              ? { ...item, quantity: Math.min(item.quantity + 1, currentStock) }
+              : item
+          );
+        }
+
+        return [
+          ...prev,
+          {
+            ...product,
+            key,
+            quantity: 1,
+            selectedColor: color,
+            selectedSize: size || '',
+            selectedVariantId: variantId,
+          },
+        ];
+      });
+
+      setCartOpen(true);
+    },
+    [getVariantStock]
+  );
 
   // Update quantity with stock check
-  const updateQuantity = (
-    id: number,
-    color: string,
-    size: string | undefined,
-    delta: number
-  ) => {
-    setCartItems((prev) =>
-      prev
-        .map((item) => {
-          if (
-            item.id === id &&
-            item.selectedColor === color &&
-            item.selectedSize === size
-          ) {
-            const stock = getVariantStock(id, color, size);
-            const newQty = item.quantity + delta;
-            return {
-              ...item,
-              quantity: Math.max(0, Math.min(newQty, stock)),
-            };
-          }
-          return item;
-        })
-        .filter((item) => item.quantity > 0)
-    );
-  };
+  const updateQuantity = useCallback(
+    (id: number, color: string, size: string | undefined, delta: number) => {
+      setCartItems((prev) =>
+        prev
+          .map((item) => {
+            if (
+              item.id === id &&
+              item.selectedColor === color &&
+              item.selectedSize === size
+            ) {
+              const currentStock = getVariantStock(id, color, size);
+              const newQty = item.quantity + delta;
+              return {
+                ...item,
+                quantity: Math.max(0, Math.min(newQty, currentStock)),
+              };
+            }
+            return item;
+          })
+          .filter((item) => item.quantity > 0)
+      );
+    },
+    [getVariantStock]
+  );
 
   // Remove item
-  const removeItem = (id: number, color: string, size?: string) => {
+  const removeItem = useCallback((id: number, color: string, size?: string) => {
     setCartItems((prev) =>
       prev.filter(
         (item) =>
@@ -241,14 +356,45 @@ function HomeContent() {
           )
       )
     );
-  };
+  }, []);
 
-  const handleQuickView = (product: Product) => {
-    setSelectedProduct(product);
-    setQuickViewOpen(true);
-  };
+  // Handle successful checkout - refresh all product data
+  const handleCheckoutSuccess = useCallback(() => {
+    setCartItems([]);
+    setCartOpen(false);
+    refetch();
+    notifyProductUpdate();
+  }, [refetch]);
+
+  const handleQuickView = useCallback(
+    (product: Product) => {
+      // Get the latest product data from state
+      const latestProduct = products.find((p) => p.id === product.id) || product;
+      setSelectedProduct(latestProduct);
+      addToRecentlyViewed(product.id);
+      setQuickViewOpen(true);
+    },
+    [products, addToRecentlyViewed]
+  );
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Validate cart items against current stock
+  useEffect(() => {
+    setCartItems((prev) =>
+      prev
+        .map((item) => {
+          const currentStock = getVariantStock(
+            item.id,
+            item.selectedColor,
+            item.selectedSize
+          );
+          const maxQty = Math.max(0, Math.min(item.quantity, currentStock));
+          return { ...item, quantity: maxQty, stock: currentStock };
+        })
+        .filter((item) => item.quantity > 0)
+    );
+  }, [products, getVariantStock]);
 
   // Dynamic page title
   useEffect(() => {
@@ -366,26 +512,63 @@ function HomeContent() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {filtered.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAddToCart={addToCart}
-                  isWishlisted={isInWishlist(product.id)}
-                  onWishlist={() => {
-                    if (isInWishlist(product.id)) {
-                      removeFromWishlist(product.id);
-                    } else {
-                      addToWishlist(product.id);
-                    }
-                  }}
-                  onQuickView={() => handleQuickView(product)}
-                />
-              ))}
+              {filtered.map((product) => {
+                // Get latest stock for this product
+                const latestProduct = products.find((p) => p.id === product.id) || product;
+                return (
+                  <ProductCard
+                    key={product.id}
+                    product={latestProduct}
+                    onAddToCart={addToCart}
+                    isWishlisted={isInWishlist(product.id)}
+                    onWishlist={() => {
+                      if (isInWishlist(product.id)) {
+                        removeFromWishlist(product.id);
+                      } else {
+                        addToWishlist(product.id);
+                      }
+                    }}
+                    onQuickView={() => handleQuickView(latestProduct)}
+                    getStock={getVariantStock}
+                    isInStock={isInStock}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
       </section>
+
+      {/* Recently Viewed */}
+      {recentlyViewedProducts.length > 0 && activeCategory === 'Todo' && (
+        <section className="py-10 bg-white">
+          <div className="max-w-7xl mx-auto px-4">
+            <h2 className="text-xl font-semibold text-[#6B4423] mb-4">
+              Vistos recientemente
+            </h2>
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+              {recentlyViewedProducts.slice(0, 8).map((product) => (
+                <button
+                  key={product.id}
+                  onClick={() => handleQuickView(product)}
+                  className="group"
+                >
+                  <div className="aspect-square rounded-xl overflow-hidden bg-[#FDF8F4]">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <p className="text-xs text-[#6B4423] mt-2 line-clamp-1 group-hover:text-[#D4A59A]">
+                    {product.name}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <Cart
         isOpen={cartOpen}
@@ -397,6 +580,7 @@ function HomeContent() {
         onCheckout={() => setCheckoutOpen(true)}
         user={user}
         onAuthOpen={() => setAuthOpen(true)}
+        getStock={getVariantStock}
       />
 
       <AuthModal
@@ -412,7 +596,8 @@ function HomeContent() {
         onClose={() => setCheckoutOpen(false)}
         items={cartItems}
         user={user!}
-        clearCart={() => setCartItems([])}
+        clearCart={handleCheckoutSuccess}
+        onOrderComplete={handleCheckoutSuccess}
       />
 
       <QuickViewModal
@@ -420,6 +605,9 @@ function HomeContent() {
         onClose={() => setQuickViewOpen(false)}
         product={selectedProduct}
         onAddToCart={addToCart}
+        getStock={getVariantStock}
+        isInStock={isInStock}
+        products={products}
       />
 
       <WishlistModal
@@ -428,11 +616,18 @@ function HomeContent() {
         products={wishlistProducts}
         onRemove={removeFromWishlist}
         onAddToCart={addToCart}
+        getStock={getVariantStock}
+        isInStock={isInStock}
       />
 
       {ordersOpen && user && (
         <div className="fixed inset-0 z-[60] bg-white">
-          <MyOrders user={user} onClose={() => setOrdersOpen(false)} />
+          <MyOrders
+            user={user}
+            onClose={() => setOrdersOpen(false)}
+            products={products}
+            getStock={getVariantStock}
+          />
         </div>
       )}
 

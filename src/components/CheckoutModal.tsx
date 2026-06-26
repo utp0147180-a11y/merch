@@ -10,6 +10,7 @@ interface CheckoutModalProps {
   items: CartItem[];
   user: UserType;
   clearCart: () => void;
+  onOrderComplete?: () => void;
 }
 
 export default function CheckoutModal({
@@ -17,7 +18,8 @@ export default function CheckoutModal({
   onClose,
   items,
   user,
-  clearCart
+  clearCart,
+  onOrderComplete,
 }: CheckoutModalProps) {
 
   const [step, setStep] = useState<'confirm' | 'success'>('confirm');
@@ -57,6 +59,9 @@ export default function CheckoutModal({
 
       setOrderNumber(number);
       setStep('success');
+
+      // Notify parent to refresh products
+      onOrderComplete?.();
 
       // limpiar carrito después de mostrar success
       setTimeout(() => {

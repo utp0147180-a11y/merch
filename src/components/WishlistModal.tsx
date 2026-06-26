@@ -1,4 +1,4 @@
-import { X, Heart, ShoppingBag, Trash2 } from 'lucide-react';
+import { X, Heart, ShoppingBag, Trash2, AlertCircle } from 'lucide-react';
 import { Product } from '../types';
 
 interface WishlistModalProps {
@@ -7,6 +7,8 @@ interface WishlistModalProps {
   products: Product[];
   onRemove: (productId: number) => void;
   onAddToCart: (product: Product, color: string, size?: string) => void;
+  getStock?: (productId: number, color: string, size?: string) => number;
+  isInStock?: (productId: number, color?: string, size?: string) => boolean;
 }
 
 export default function WishlistModal({
@@ -15,8 +17,32 @@ export default function WishlistModal({
   products,
   onRemove,
   onAddToCart,
+  getStock,
+  isInStock,
 }: WishlistModalProps) {
   if (!isOpen) return null;
+
+  const isProductInStock = (product: Product): boolean => {
+    if (isInStock) {
+      return isInStock(product.id);
+    }
+    if (product.product_variants && product.product_variants.length > 0) {
+      return product.product_variants.some((v) => v.active !== false && v.stock > 0);
+    }
+    return (product.stock ?? 0) > 0;
+  };
+
+  const handleAddToCart = (product: Product) => {
+    if (!isProductInStock(product)) return;
+
+    const variant = product.product_variants?.find((v) => v.stock > 0);
+    const color = variant?.color || product.colors?.[0] || '';
+    const size = variant?.size || product.sizes?.[0];
+
+    if (color) {
+      onAddToCart(product, color, size);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -59,47 +85,80 @@ export default function WishlistModal({
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-[#FDF8F4] rounded-xl overflow-hidden border border-[#E8D4C4]"
-                >
-                  <div className="aspect-square relative">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      onClick={() => onRemove(product.id)}
-                      className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={14} className="text-red-500" />
-                    </button>
-                  </div>
-                  <div className="p-3">
-                    <p className="text-xs text-[#D4A59A] mb-1">{product.category}</p>
-                    <p className="text-sm font-medium text-[#6B4423] line-clamp-1">
-                      {product.name}
-                    </p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="font-bold text-[#6B4423]">
-                        ${product.price}
-                      </span>
+              {products.map((product) => {
+                const inStock = isProductInStock(product);
+                const stockCount = product.product_variants?.reduce(
+                  (sum, v) => sum + Math.max(0, v.stock),
+                  product.stock || 0
+                ) || 0;
+
+                return (
+                  <div
+                    key={product.id}
+                    className={`bg-[#FDF8F4] rounded-xl overflow-hidden border border-[#E8D4C4] ${
+                      !inStock ? 'opacity-60' : ''
+                    }`}
+                  >
+                    <div className="aspect-square relative">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {!inStock && (
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                          <span className="bg-white/90 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-full">
+                            Agotado
+                          </span>
+                        </div>
+                      )}
                       <button
-                        onClick={() => {
-                          const color = product.colors?.[0] || '';
-                          const size = product.sizes?.[0];
-                          onAddToCart(product, color, size);
-                        }}
-                        className="w-8 h-8 bg-[#D4A59A] rounded-full flex items-center justify-center text-white hover:bg-[#8B7355] transition-colors"
+                        onClick={() => onRemove(product.id)}
+                        className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow hover:bg-red-50 transition-colors"
                       >
-                        <ShoppingBag size={14} />
+                        <Trash2 size={14} className="text-red-500" />
                       </button>
+
+                      {/* Low stock indicator */}
+                      {inStock && stockCount > 0 && stockCount <= 5 && (
+                        <div className="absolute top-2 left-2 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-full">
+                          ¡Solo {stockCount}!
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="text-xs text-[#D4A59A] mb-1">{product.category}</p>
+                      <p className="text-sm font-medium text-[#6B4423] line-clamp-1">
+                        {product.name}
+                      </p>
+                      <div className="flex items-center justify-between mt-2">
+                        <div>
+                          <span className="font-bold text-[#6B4423]">
+                            ${product.price}
+                          </span>
+                          {product.original_price && (
+                            <span className="text-xs text-[#B89B8A] line-through ml-1">
+                              ${product.original_price}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          disabled={!inStock}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors ${
+                            inStock
+                              ? 'bg-[#D4A59A] hover:bg-[#8B7355]'
+                              : 'bg-gray-300 cursor-not-allowed'
+                          }`}
+                          title={inStock ? 'Agregar al carrito' : 'Agotado'}
+                        >
+                          <ShoppingBag size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

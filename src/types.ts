@@ -27,6 +27,12 @@ export interface ProductImage {
   created_at: string;
 }
 
+// Product with all relations
+export interface ProductWithVariants extends Product {
+  product_variants: ProductVariant[];
+  product_images: ProductImage[];
+}
+
 // Main Product interface
 export interface Product {
   id: number;

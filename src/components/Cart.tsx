@@ -12,6 +12,7 @@ interface CartProps {
   onCheckout: () => void;
   user: User | null;
   onAuthOpen: () => void;
+  getStock?: (productId: number, color: string, size?: string) => number;
 }
 
 // Color mapping for visual display
@@ -54,6 +55,7 @@ export default function Cart({
   onCheckout,
   user,
   onAuthOpen,
+  getStock,
 }: CartProps) {
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -62,10 +64,14 @@ export default function Cart({
 
   const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 149;
 
-  // Get variant stock
+  // Get variant stock - use passed function or fallback
   const getVariantStock = (item: CartItem): number => {
+    if (getStock) {
+      return getStock(item.id, item.selectedColor, item.selectedSize);
+    }
+
     const product = products?.find((p) => p.id === item.id);
-    if (!product?.product_variants) return 10;
+    if (!product?.product_variants) return 0;
 
     const variant = product.product_variants.find((v) => {
       const colorMatch = v.color === item.selectedColor;
@@ -73,7 +79,7 @@ export default function Cart({
       return colorMatch && sizeMatch;
     });
 
-    return variant?.stock ?? 10;
+    return variant?.stock ?? 0;
   };
 
   // Get color display value

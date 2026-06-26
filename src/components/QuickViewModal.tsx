@@ -21,6 +21,9 @@ interface QuickViewProps {
   onClose: () => void;
   product: Product | null;
   onAddToCart: (product: Product, color: string, size?: string, variantId?: number) => void;
+  getStock?: (productId: number, color: string, size?: string) => number;
+  isInStock?: (productId: number, color?: string, size?: string) => boolean;
+  products?: Product[];
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -43,6 +46,9 @@ export default function QuickViewModal({
   onClose,
   product,
   onAddToCart,
+  getStock,
+  isInStock,
+  products,
 }: QuickViewProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState('');
@@ -93,7 +99,14 @@ export default function QuickViewModal({
     });
   }, [variants, selectedColor, selectedSize, displaySizes]);
 
-  const stock = selectedVariant?.stock ?? product?.stock ?? 10;
+  // Calculate stock - use getStock if available for real-time data
+  const stock = useMemo(() => {
+    if (getStock && product) {
+      return getStock(product.id, selectedColor, displaySizes.length > 0 ? selectedSize : undefined);
+    }
+    return selectedVariant?.stock ?? product?.stock ?? 0;
+  }, [getStock, product, selectedColor, selectedSize, selectedVariant, displaySizes]);
+
   const isOutOfStock = stock <= 0;
   const isLowStock = stock > 0 && stock <= 5;
 

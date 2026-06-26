@@ -8,6 +8,9 @@ interface ProductCardProps {
   isWishlisted?: boolean;
   onWishlist?: () => void;
   onQuickView?: () => void;
+  getStock?: (productId: number, color: string, size?: string) => number;
+  isInStock?: (productId: number, color?: string, size?: string) => boolean;
+  showViewers?: boolean;
 }
 
 // Color mapping for visual display
@@ -47,17 +50,26 @@ export default function ProductCard({
   isWishlisted = false,
   onWishlist,
   onQuickView,
+  getStock,
+  isInStock,
+  showViewers = false,
 }: ProductCardProps) {
   const [added, setAdded] = useState(false);
   const [hovered, setHovered] = useState(false);
 
+  // Simulated viewers count (random but consistent per product)
+  const viewersCount = useMemo(() => {
+    if (!showViewers) return 0;
+    return Math.floor(Math.random() * 15) + 3;
+  }, [product.id, showViewers]);
+
   // Extract unique colors and sizes from variants
   const variants = product.product_variants || [];
 
-  // Get unique colors from variants
+  // Get unique colors from variants (only with stock > 0)
   const availableColors = useMemo(() => {
     const colors = variants
-      .filter((v) => v.color && v.active !== false)
+      .filter((v) => v.color && v.active !== false && v.stock > 0)
       .map((v) => v.color as string);
     return [...new Set(colors)];
   }, [variants]);
@@ -65,7 +77,7 @@ export default function ProductCard({
   // Get unique sizes from variants
   const availableSizes = useMemo(() => {
     const sizes = variants
-      .filter((v) => v.size && v.active !== false)
+      .filter((v) => v.size && v.active !== false && v.stock > 0)
       .map((v) => v.size as string);
     return [...new Set(sizes)];
   }, [variants]);
@@ -87,9 +99,28 @@ export default function ProductCard({
   }, [variants, selectedColor, selectedSize, displaySizes]);
 
   // Check stock based on variant
-  const stock = selectedVariant?.stock ?? product.stock ?? 10;
-  const isOutOfStock = stock <= 0;
+  const stock = selectedVariant?.stock ?? product.stock ?? 0;
+
+  // Check if the entire product is out of stock
+  const isProductOutOfStock = useMemo(() => {
+    if (variants.length > 0) {
+      return variants.every((v) => !v.active || v.stock <= 0);
+    }
+    return (product.stock ?? 0) <= 0;
+  }, [variants, product.stock]);
+
+  const isOutOfStock = stock <= 0 || isProductOutOfStock;
   const isLowStock = stock > 0 && stock <= 5;
+
+  // Check if a specific color has any stock
+  const colorHasStock = (color: string): boolean => {
+    return variants.some((v) => v.color === color && v.active !== false && v.stock > 0);
+  };
+
+  // Check if a specific size has any stock
+  const sizeHasStock = (size: string): boolean => {
+    return variants.some((v) => v.size === size && v.active !== false && v.stock > 0);
+  };
 
   // Get available sizes for selected color
   const sizesForColor = useMemo(() => {

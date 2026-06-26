@@ -84,6 +84,68 @@ export default function Products() {
 
   const categories = ['Ropa', 'Belleza', 'Accesorios', 'Calzado'];
 
+  // Category-specific options
+  const SUBCATEGORIES: Record<string, { name: string; label: string }[]> = {
+    Ropa: [
+      { name: 'Women', label: 'Mujer' },
+      { name: 'Men', label: 'Hombre' },
+      { name: 'Kids', label: 'Niños' },
+    ],
+  };
+
+  const CATEGORY_TYPES: Record<string, { type: string; label: string; sizes: string[] }[]> = {
+    Belleza: [
+      { type: 'makeup', label: 'Maquillaje', sizes: [] },
+      { type: 'skincare', label: 'Skincare', sizes: [] },
+      { type: 'haircare', label: 'Cuidado del cabello', sizes: [] },
+      { type: 'fragrances', label: 'Fragancias', sizes: [] },
+    ],
+    Accesorios: [
+      { type: 'bags', label: 'Bolsos', sizes: ['Única'] },
+      { type: 'jewelry', label: 'Joyería', sizes: ['Única', 'S', 'M', 'L'] },
+      { type: 'watches', label: 'Relojes', sizes: ['Única'] },
+      { type: 'sunglasses', label: 'Lentes de sol', sizes: ['Única'] },
+      { type: 'belts', label: 'Cinturones', sizes: ['S', 'M', 'L', 'XL'] },
+      { type: 'other', label: 'Otro', sizes: ['Única'] },
+    ],
+    Calzado: [
+      { type: 'sneakers', label: 'Tenis', sizes: ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'] },
+      { type: 'boots', label: 'Botas', sizes: ['22', '23', '24', '25', '26', '27', '28', '29', '30'] },
+      { type: 'sandals', label: 'Sandalias', sizes: ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'] },
+      { type: 'heels', label: 'Tacones', sizes: ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'] },
+      { type: 'flats', label: 'Flats', sizes: ['22', '23', '24', '25', '26', '27', '28', '29', '30'] },
+    ],
+  };
+
+  // Get sizes based on category and type
+  const getAvailableSizes = () => {
+    if (formData.category_type === 'clothing') {
+      return VARIANT_OPTIONS.clothingSizes;
+    }
+    if (formData.category_type === 'beauty') {
+      return []; // Beauty doesn't use sizes
+    }
+    if (formData.category_type === 'footwear') {
+      return VARIANT_OPTIONS.footwearSizes;
+    }
+    if (formData.category_type === 'accessories') {
+      const types = CATEGORY_TYPES['Accesorios'];
+      const selectedType = types?.find((t) => t.type === formData.subcategory);
+      return selectedType?.sizes || ['Única'];
+    }
+    return [];
+  };
+
+  // Check if sizes should be shown for this category
+  const shouldShowSizes = () => {
+    return ['clothing', 'footwear'].includes(formData.category_type);
+  };
+
+  // Check if colors should be shown
+  const shouldShowColors = () => {
+    return true; // Most products have colors/shades
+  };
+
   const fetchProducts = async () => {
     setLoading(true);
     const { data: productsData, error } = await supabase
@@ -323,17 +385,6 @@ export default function Products() {
 
     resetForm();
     fetchProducts();
-  };
-
-  // Get available sizes based on category type
-  const getAvailableSizes = () => {
-    const config = CATEGORY_TYPE_CONFIGS.find((c) => c.type === formData.category_type);
-    return config?.sizes || [];
-  };
-
-  const getAvailableColors = () => {
-    const config = CATEGORY_TYPE_CONFIGS.find((c) => c.type === formData.category_type);
-    return config?.colors || VARIANT_OPTIONS.colors;
   };
 
   return (
