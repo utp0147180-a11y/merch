@@ -143,7 +143,6 @@ function HomeContent() {
     addToWishlist,
     removeFromWishlist,
     isInWishlist,
-    refetchWishlist,
   } = useWishlist();
 
   // Load recently viewed from localStorage
@@ -591,14 +590,16 @@ function HomeContent() {
         onLogout={() => setUser(null)}
       />
 
-      <CheckoutModal
-        isOpen={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
-        items={cartItems}
-        user={user!}
-        clearCart={handleCheckoutSuccess}
-        onOrderComplete={handleCheckoutSuccess}
-      />
+      {user && (
+        <CheckoutModal
+          isOpen={checkoutOpen}
+          onClose={() => setCheckoutOpen(false)}
+          items={cartItems}
+          user={user}
+          clearCart={handleCheckoutSuccess}
+          onOrderComplete={handleCheckoutSuccess}
+        />
+      )}
 
       <QuickViewModal
         isOpen={quickViewOpen}

@@ -27,6 +27,7 @@ interface ProductFormData {
   image: string;
   category: string;
   category_type: string;
+  subcategory: string;
   brand: string;
   sku: string;
   badge: string;
@@ -47,6 +48,7 @@ const initialFormData: ProductFormData = {
   image: '',
   category: '',
   category_type: 'clothing',
+  subcategory: '',
   brand: '',
   sku: '',
   badge: '',
@@ -115,6 +117,14 @@ export default function Products() {
       { type: 'heels', label: 'Tacones', sizes: ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'] },
       { type: 'flats', label: 'Flats', sizes: ['22', '23', '24', '25', '26', '27', '28', '29', '30'] },
     ],
+  };
+
+  // Get available colors based on category type
+  const getAvailableColors = () => {
+    if (formData.category_type === 'beauty') {
+      return VARIANT_OPTIONS.beautyShades;
+    }
+    return VARIANT_OPTIONS.colors;
   };
 
   // Get sizes based on category and type
@@ -266,6 +276,7 @@ export default function Products() {
       image: product.image || '',
       category: product.category || '',
       category_type: product.category_type || 'clothing',
+      subcategory: product.subcategory || '',
       brand: product.brand || '',
       sku: product.sku || '',
       badge: product.badge || '',

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, ChevronRight, Clock, Truck, CheckCircle, XCircle, AlertCircle, X as CloseIcon } from 'lucide-react';
 import { User, Product } from '../types';
 import { supabase } from '../lib/supabase';
@@ -81,26 +81,6 @@ export default function MyOrders({ user, onClose, products, getStock }: MyOrders
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  useState(() => {
-    fetchOrders();
-  });
-
-  // Real-time subscription for order updates
-  useState(() => {
-    const channel = supabase
-      .channel(`orders-user-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },
-        () => fetchOrders()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  });
-
   const fetchOrders = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -118,6 +98,27 @@ export default function MyOrders({ user, onClose, products, getStock }: MyOrders
     }
     setLoading(false);
   };
+
+  // Fetch orders on mount
+  useEffect(() => {
+    fetchOrders();
+  }, [user.id]);
+
+  // Real-time subscription for order updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`orders-user-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },
+        () => fetchOrders()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user.id]);
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
