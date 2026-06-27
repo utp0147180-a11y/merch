@@ -159,6 +159,113 @@ async function deductProductStock(
     .eq('id', productId);
 }
 
+// Restore stock to variant
+async function restoreVariantStock(
+  variantId: number,
+  quantity: number
+): Promise<boolean> {
+  const { data: variant, error: fetchError } = await supabase
+    .from('product_variants')
+    .select('stock')
+    .eq('id', variantId)
+    .single();
+
+  if (fetchError || !variant) {
+    console.error('Error fetching variant for stock restore:', fetchError);
+    return false;
+  }
+
+  const newStock = variant.stock + quantity;
+
+  const { error: updateError } = await supabase
+    .from('product_variants')
+    .update({ stock: newStock, updated_at: new Date().toISOString() })
+    .eq('id', variantId);
+
+  if (updateError) {
+    console.error('Error restoring variant stock:', updateError);
+    return false;
+  }
+
+  return true;
+}
+
+// Restore stock to product (legacy)
+async function restoreProductStock(
+  productId: number,
+  quantity: number
+): Promise<void> {
+  const { data: product, error: fetchError } = await supabase
+    .from('products')
+    .select('stock')
+    .eq('id', productId)
+    .single();
+
+  if (fetchError || !product) return;
+
+  const newStock = (product.stock || 0) + quantity;
+
+  await supabase
+    .from('products')
+    .update({ stock: newStock })
+    .eq('id', productId);
+}
+
+// Cancel order with stock restoration - IDEMPOTENT
+// Only restores stock if order is currently 'pendiente'
+export async function cancelOrderWithStockRestoration(orderId: string): Promise<{ success: boolean; error?: string }> {
+  // First, get the order and verify its current status
+  const { data: order, error: fetchError } = await supabase
+    .from('orders')
+    .select('id, status, order_items(id, product_id, quantity, color, size, variant_id)')
+    .eq('id', orderId)
+    .single();
+
+  if (fetchError || !order) {
+    console.error('Error fetching order for cancellation:', fetchError);
+    return { success: false, error: 'Order not found' };
+  }
+
+  // IDEMPOTENCY CHECK: Only restore stock if currently pending
+  if (order.status !== 'pendiente') {
+    // Just update the status if needed, don't restore stock
+    if (order.status !== 'cancelado') {
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ status: 'cancelado' })
+        .eq('id', orderId);
+
+      if (updateError) {
+        return { success: false, error: 'Failed to update status' };
+      }
+    }
+    return { success: true };
+  }
+
+  // Restore stock for each item
+  for (const item of order.order_items) {
+    if (item.variant_id) {
+      await restoreVariantStock(item.variant_id, item.quantity);
+    } else if (item.product_id) {
+      // Fallback to product stock if no variant
+      await restoreProductStock(item.product_id, item.quantity);
+    }
+  }
+
+  // Update order status to cancelled
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({ status: 'cancelado' })
+    .eq('id', orderId);
+
+  if (updateError) {
+    console.error('Error updating order status:', updateError);
+    return { success: false, error: 'Failed to cancel order' };
+  }
+
+  return { success: true };
+}
+
 export async function saveOrder(
   orderNumber: string,
   user: User,

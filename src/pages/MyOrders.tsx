@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Package, ChevronRight, Clock, Truck, CheckCircle, XCircle, AlertCircle, X as CloseIcon } from 'lucide-react';
 import { User, Product } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, cancelOrderWithStockRestoration } from '../lib/supabase';
 
 interface Order {
   id: string;
@@ -126,18 +126,17 @@ export default function MyOrders({ user, onClose, products, getStock }: MyOrders
   const getStatusConfig = (status: string) =>
     STATUS_CONFIG[status] || { icon: Clock, label: status, color: 'text-gray-600', bg: 'bg-gray-100' };
 
-  // Cancel order (only if pending)
+  // Cancel order (only if pending) - with stock restoration
   const handleCancelOrder = async (orderId: string) => {
     if (!confirm('¿Estás seguro de cancelar este pedido?')) return;
 
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'cancelado' })
-      .eq('id', orderId);
+    const result = await cancelOrderWithStockRestoration(orderId);
 
-    if (!error) {
+    if (result.success) {
       fetchOrders();
       setSelectedOrder(null);
+    } else {
+      alert('Error al cancelar el pedido: ' + (result.error || 'Error desconocido'));
     }
   };
 
@@ -187,7 +186,7 @@ export default function MyOrders({ user, onClose, products, getStock }: MyOrders
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.filter((o) => o.status !== 'cancelado').map((order) => {
+            {orders.map((order) => {
               const statusConfig = getStatusConfig(order.status);
               const StatusIcon = statusConfig.icon;
 

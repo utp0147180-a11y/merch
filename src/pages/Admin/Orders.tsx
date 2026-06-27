@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase, cancelOrderWithStockRestoration } from "../../lib/supabase";
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -39,15 +39,26 @@ export default function Orders() {
     else console.log(error);
   };
 
-  const updateStatus = async (orderId: string, status: string) => {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status })
-      .eq("id", orderId);
+  const updateStatus = async (orderId: string, newStatus: string) => {
+    // If cancelling, use the special function that restores stock
+    if (newStatus === 'cancelado') {
+      const result = await cancelOrderWithStockRestoration(orderId);
+      if (!result.success) {
+        alert('Error al cancelar el pedido: ' + (result.error || 'Error desconocido'));
+        return;
+      }
+    } else {
+      // For other status changes, just update
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: newStatus })
+        .eq("id", orderId);
 
-    if (error) {
-      console.log(error);
-      return;
+      if (error) {
+        console.log(error);
+        alert('Error al actualizar el estado');
+        return;
+      }
     }
 
     fetchOrders();
@@ -55,6 +66,22 @@ export default function Orders() {
 
   useEffect(() => {
     fetchOrders();
+  }, []);
+
+  // Real-time subscription for orders
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-orders-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => fetchOrders()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
