@@ -212,55 +212,49 @@ async function restoreProductStock(
 }
 
 // Cancel order with stock restoration - IDEMPOTENT
-// Only restores stock if order is currently 'pendiente'
+// Uses atomic update to ensure stock is only restored once
 export async function cancelOrderWithStockRestoration(orderId: string): Promise<{ success: boolean; error?: string }> {
-  // First, get the order and verify its current status
-  const { data: order, error: fetchError } = await supabase
+  // ATOMIC UPDATE: Only succeed if status is currently 'pendiente'
+  // This prevents race conditions where both admin and customer try to cancel simultaneously
+  const { data: updatedOrder, error: updateError } = await supabase
     .from('orders')
-    .select('id, status, order_items(id, product_id, quantity, color, size, variant_id)')
+    .update({ status: 'cancelado' })
     .eq('id', orderId)
+    .eq('status', 'pendiente')  // This is the key - only matches if still pending
+    .select('id, status, order_items(id, product_id, quantity, color, size, variant_id)')
     .single();
 
-  if (fetchError || !order) {
-    console.error('Error fetching order for cancellation:', fetchError);
-    return { success: false, error: 'Order not found' };
-  }
+  if (updateError || !updatedOrder) {
+    // Order was not updated - either doesn't exist or was already cancelled/not pending
+    // Check current status to provide appropriate message
+    const { data: order, error: fetchError } = await supabase
+      .from('orders')
+      .select('id, status')
+      .eq('id', orderId)
+      .single();
 
-  // IDEMPOTENCY CHECK: Only restore stock if currently pending
-  if (order.status !== 'pendiente') {
-    // Just update the status if needed, don't restore stock
-    if (order.status !== 'cancelado') {
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ status: 'cancelado' })
-        .eq('id', orderId);
-
-      if (updateError) {
-        return { success: false, error: 'Failed to update status' };
-      }
+    if (fetchError || !order) {
+      return { success: false, error: 'Order not found' };
     }
-    return { success: true };
+
+    // If already cancelled, return success (idempotent)
+    if (order.status === 'cancelado') {
+      return { success: true };
+    }
+
+    // Order exists but not in a cancellable state
+    return { success: false, error: `Order status is '${order.status}', cannot cancel` };
   }
 
-  // Restore stock for each item
-  for (const item of order.order_items) {
+  // We successfully updated the status from pendiente to cancelado
+  // Now restore stock for each item (this only happens once due to atomic update above)
+  for (const item of updatedOrder.order_items) {
     if (item.variant_id) {
       await restoreVariantStock(item.variant_id, item.quantity);
     } else if (item.product_id) {
       // Fallback to product stock if no variant
       await restoreProductStock(item.product_id, item.quantity);
     }
-  }
-
-  // Update order status to cancelled
-  const { error: updateError } = await supabase
-    .from('orders')
-    .update({ status: 'cancelado' })
-    .eq('id', orderId);
-
-  if (updateError) {
-    console.error('Error updating order status:', updateError);
-    return { success: false, error: 'Failed to cancel order' };
   }
 
   return { success: true };

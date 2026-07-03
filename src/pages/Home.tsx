@@ -145,6 +145,13 @@ function HomeContent() {
     isInWishlist,
   } = useWishlist();
 
+  // Get live wishlist products with current stock data from main products state
+  const liveWishlistProducts = useMemo(() => {
+    return wishlist
+      .map((id) => products.find((p) => p.id === id))
+      .filter(Boolean) as Product[];
+  }, [wishlist, products]);
+
   // Load recently viewed from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('merchRay_recently_viewed');
@@ -614,7 +621,7 @@ function HomeContent() {
       <WishlistModal
         isOpen={wishlistOpen}
         onClose={() => setWishlistOpen(false)}
-        products={wishlistProducts}
+        products={liveWishlistProducts}
         onRemove={removeFromWishlist}
         onAddToCart={addToCart}
         getStock={getVariantStock}
