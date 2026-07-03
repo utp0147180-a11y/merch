@@ -45,6 +45,11 @@ function useProducts() {
       .select('*')
       .order('sort_order', { ascending: true });
 
+    const { data: variantImagesData } = await supabase
+      .from('product_variant_images')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
     if (error) {
       console.log(error);
       setLoading(false);
@@ -60,6 +65,9 @@ function useProducts() {
       ),
       product_images: (imagesData || []).filter(
         (img: any) => Number(img.product_id) === Number(p.id)
+      ),
+      variant_images: (variantImagesData || []).filter(
+        (vi: any) => Number(vi.product_id) === Number(p.id)
       ),
     }));
 
@@ -103,6 +111,11 @@ function useProducts() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'product_images' },
+        () => fetchProducts()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'product_variant_images' },
         () => fetchProducts()
       )
       .subscribe();

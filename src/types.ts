@@ -24,6 +24,18 @@ export interface ProductImage {
   alt_text: string | null;
   sort_order: number;
   is_primary: boolean;
+  variant_color?: string | null;  // Optional: associate with a specific color
+  created_at: string;
+}
+
+// Variant Image - images associated with specific color variants
+export interface ProductVariantImage {
+  id: number;
+  product_id: number;
+  variant_color: string;
+  image_url: string;
+  alt_text: string | null;
+  sort_order: number;
   created_at: string;
 }
 
@@ -66,6 +78,7 @@ export interface Product {
   // Relations - populated from joins
   product_variants?: ProductVariant[];
   product_images?: ProductImage[];
+  variant_images?: ProductVariantImage[];  // Images associated with specific colors
 }
 
 // Cart Item - stores variant selection

@@ -89,6 +89,17 @@ export default function ProductCard({
   const [selectedColor, setSelectedColor] = useState(displayColors[0] || '');
   const [selectedSize, setSelectedSize] = useState(displaySizes[0] || '');
 
+  // Get the primary/cover image for the product card
+  const coverImage = useMemo(() => {
+    // If product has multiple images, use the primary one
+    if (product.product_images && product.product_images.length > 0) {
+      const primary = product.product_images.find((img) => img.is_primary);
+      return primary?.image_url || product.product_images[0].image_url;
+    }
+    // Fall back to main product image
+    return product.image;
+  }, [product]);
+
   // Find the matching variant for selected color/size
   const selectedVariant = useMemo(() => {
     return variants.find((v) => {
@@ -199,11 +210,12 @@ export default function ProductCard({
       {/* Image */}
       <div className="relative overflow-hidden bg-[#FDF8F4] aspect-[3/4]">
         <img
-          src={product.image}
+          src={coverImage}
           alt={product.name}
           className={`w-full h-full object-cover transition-transform duration-700 ${
             hovered ? 'scale-110' : 'scale-100'
           }`}
+          loading="lazy"
         />
 
         <div

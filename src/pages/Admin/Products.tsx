@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, createProductImage, deleteProductImage, setPrimaryImage, reorderProductImages, createVariantImage, deleteVariantImage, fetchVariantImages } from '../../lib/supabase';
 import {
   Search,
   Plus,
@@ -13,8 +13,11 @@ import {
   Check,
   ImageIcon,
   ChevronDown,
+  ChevronUp,
+  Star,
+  GripVertical,
 } from 'lucide-react';
-import { Product, ProductVariant, VARIANT_OPTIONS, CATEGORY_TYPE_CONFIGS } from '../../types';
+import { Product, ProductVariant, ProductImage, ProductVariantImage, VARIANT_OPTIONS, CATEGORY_TYPE_CONFIGS } from '../../types';
 
 type ProductStatus = 'all' | 'active' | 'draft' | 'out_of_stock';
 type SortOption = 'newest' | 'oldest' | 'price_high' | 'price_low' | 'stock_low';
@@ -83,6 +86,15 @@ export default function Products() {
     stock: 0,
     sku: '',
   });
+
+  // Images management
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
+  const [newImageUrl, setNewImageUrl] = useState('');
+
+  // Variant images management (color-specific images)
+  const [variantImages, setVariantImages] = useState<ProductVariantImage[]>([]);
+  const [selectedColorForImages, setSelectedColorForImages] = useState('');
+  const [newVariantImageUrl, setNewVariantImageUrl] = useState('');
 
   const categories = ['Ropa', 'Belleza', 'Accesorios', 'Calzado'];
 
@@ -262,11 +274,16 @@ export default function Products() {
     setFormData(initialFormData);
     setVariants([]);
     setNewVariant({ color: '', size: '', stock: 0, sku: '' });
+    setProductImages([]);
+    setNewImageUrl('');
+    setVariantImages([]);
+    setSelectedColorForImages('');
+    setNewVariantImageUrl('');
     setEditing(null);
     setShowForm(false);
   };
 
-  const handleEdit = (product: Product) => {
+  const handleEdit = async (product: Product) => {
     setEditing(product);
     setFormData({
       name: product.name || '',
@@ -289,6 +306,12 @@ export default function Products() {
       stock: String(product.stock || '0'),
     });
     setVariants(product.product_variants || []);
+    setProductImages(product.product_images || []);
+
+    // Fetch variant images for this product
+    const vImages = await fetchVariantImages(product.id);
+    setVariantImages(vImages || []);
+
     setShowForm(true);
   };
 
@@ -314,6 +337,132 @@ export default function Products() {
 
   const removeVariant = (index: number) => {
     setVariants(variants.filter((_, i) => i !== index));
+  };
+
+  // Image management functions
+  const addProductImage = async () => {
+    if (!newImageUrl.trim() || !editing?.id) {
+      // If no product yet, add to local state
+      if (newImageUrl.trim()) {
+        const tempImage: ProductImage = {
+          id: Date.now() * -1, // Temporary negative ID
+          product_id: editing?.id || 0,
+          image_url: newImageUrl.trim(),
+          alt_text: null,
+          sort_order: productImages.length,
+          is_primary: productImages.length === 0,
+          created_at: new Date().toISOString(),
+        };
+        setProductImages([...productImages, tempImage]);
+        setNewImageUrl('');
+      }
+      return;
+    }
+
+    const image = await createProductImage(editing.id, {
+      image_url: newImageUrl.trim(),
+      sort_order: productImages.length,
+      is_primary: productImages.length === 0,
+    });
+
+    if (image) {
+      setProductImages([...productImages, image]);
+      setNewImageUrl('');
+    }
+  };
+
+  const removeProductImage = async (imageId: number) => {
+    if (imageId > 0) {
+      await deleteProductImage(imageId);
+    }
+    const updated = productImages.filter((img) => img.id !== imageId);
+
+    // If we removed the primary image, make the first remaining image primary
+    if (updated.length > 0 && !updated.some((img) => img.is_primary)) {
+      if (editing?.id && updated[0].id > 0) {
+        await setPrimaryImage(editing.id, updated[0].id);
+      }
+      updated[0].is_primary = true;
+    }
+
+    setProductImages(updated);
+  };
+
+  const handleSetPrimaryImage = async (imageId: number) => {
+    if (editing?.id && imageId > 0) {
+      await setPrimaryImage(editing.id, imageId);
+    }
+    const updated = productImages.map((img) => ({
+      ...img,
+      is_primary: img.id === imageId,
+    }));
+    setProductImages(updated);
+  };
+
+  const moveImageUp = (index: number) => {
+    if (index === 0) return;
+    const updated = [...productImages];
+    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    updated.forEach((img, i) => (img.sort_order = i));
+    setProductImages(updated);
+  };
+
+  const moveImageDown = (index: number) => {
+    if (index === productImages.length - 1) return;
+    const updated = [...productImages];
+    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+    updated.forEach((img, i) => (img.sort_order = i));
+    setProductImages(updated);
+  };
+
+  // Variant image management
+  const uniqueColors = useMemo(() => {
+    const colors = variants
+      .filter((v) => v.color)
+      .map((v) => v.color as string);
+    return [...new Set(colors)];
+  }, [variants]);
+
+  const addVariantImage = async () => {
+    if (!newVariantImageUrl.trim() || !selectedColorForImages) return;
+
+    if (!editing?.id) {
+      // Add to local state for new products
+      const tempImage: ProductVariantImage = {
+        id: Date.now() * -1,
+        product_id: 0,
+        variant_color: selectedColorForImages,
+        image_url: newVariantImageUrl.trim(),
+        alt_text: null,
+        sort_order: variantImages.filter((vi) => vi.variant_color === selectedColorForImages).length,
+        created_at: new Date().toISOString(),
+      };
+      setVariantImages([...variantImages, tempImage]);
+      setNewVariantImageUrl('');
+      return;
+    }
+
+    const image = await createVariantImage(editing.id, {
+      variant_color: selectedColorForImages,
+      image_url: newVariantImageUrl.trim(),
+      sort_order: variantImages.filter((vi) => vi.variant_color === selectedColorForImages).length,
+    });
+
+    if (image) {
+      setVariantImages([...variantImages, image]);
+      setNewVariantImageUrl('');
+    }
+  };
+
+  const removeVariantImage = async (imageId: number) => {
+    if (imageId > 0) {
+      await deleteVariantImage(imageId);
+    }
+    setVariantImages(variantImages.filter((img) => img.id !== imageId));
+  };
+
+  const getVariantImagesForColor = (color: string) => {
+    return variantImages.filter((vi) => vi.variant_color === color);
   };
 
   const saveProduct = async () => {
@@ -391,6 +540,44 @@ export default function Products() {
 
       if (variantError) {
         console.error('Error saving variants:', variantError);
+      }
+    }
+
+    // Save product images (for new products or when images were added before save)
+    if (productId) {
+      // Delete existing images if editing
+      if (editing) {
+        await supabase.from('product_images').delete().eq('product_id', productId);
+        await supabase.from('product_variant_images').delete().eq('product_id', productId);
+      }
+
+      // Insert product images
+      for (const img of productImages) {
+        await createProductImage(productId, {
+          image_url: img.image_url,
+          alt_text: img.alt_text || undefined,
+          sort_order: img.sort_order,
+          is_primary: img.is_primary,
+        });
+      }
+
+      // Insert variant images
+      for (const vi of variantImages) {
+        await createVariantImage(productId, {
+          variant_color: vi.variant_color,
+          image_url: vi.image_url,
+          alt_text: vi.alt_text || undefined,
+          sort_order: vi.sort_order,
+        });
+      }
+
+      // Update product cover image if there's a primary image
+      const primaryImage = productImages.find((img) => img.is_primary);
+      if (primaryImage) {
+        await supabase
+          .from('products')
+          .update({ image: primaryImage.image_url })
+          .eq('id', productId);
       }
     }
 
@@ -715,7 +902,7 @@ export default function Products() {
 
                   <div>
                     <label className="block text-xs font-medium text-[#8B7355] mb-1.5">
-                      URL de imagen
+                      URL de imagen principal (fallback)
                     </label>
                     <input
                       type="text"
@@ -739,6 +926,171 @@ export default function Products() {
                       </div>
                     )}
                   </div>
+
+                  {/* Product Images Gallery Section */}
+                  <div className="border-t border-[#E8D4C4] pt-4 mt-4">
+                    <h3 className="text-sm font-semibold text-[#6B4423] uppercase tracking-wider mb-3">
+                      Galeria de imagenes del producto
+                    </h3>
+
+                    {/* Add image input */}
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        value={newImageUrl}
+                        onChange={(e) => setNewImageUrl(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-[#FDF8F4] border border-[#E8D4C4] rounded-xl text-sm focus:outline-none focus:border-[#D4A59A]"
+                        placeholder="URL de imagen..."
+                      />
+                      <button
+                        onClick={addProductImage}
+                        disabled={!newImageUrl.trim()}
+                        className="px-3 py-2 bg-[#6B4423] text-white rounded-xl text-sm font-medium hover:bg-[#8B7355] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+
+                    {/* Images list */}
+                    {productImages.length > 0 && (
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {productImages.map((img, index) => (
+                          <div
+                            key={img.id}
+                            className={`flex items-center gap-3 p-2 bg-[#FDF8F4] rounded-xl border ${img.is_primary ? 'border-[#D4A59A]' : 'border-[#E8D4C4]'}`}
+                          >
+                            <img
+                              src={img.image_url}
+                              alt={img.alt_text || 'Product image'}
+                              className="w-16 h-16 rounded-lg object-cover"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-[#6B4423] truncate">{img.image_url}</p>
+                              {img.is_primary && (
+                                <span className="text-xs text-[#D4A59A] font-medium">Principal</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => moveImageUp(index)}
+                                disabled={index === 0}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white disabled:opacity-30"
+                              >
+                                <ChevronUp size={14} className="text-[#8B7355]" />
+                              </button>
+                              <button
+                                onClick={() => moveImageDown(index)}
+                                disabled={index === productImages.length - 1}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white disabled:opacity-30"
+                              >
+                                <ChevronDown size={14} className="text-[#8B7355]" />
+                              </button>
+                              <button
+                                onClick={() => handleSetPrimaryImage(img.id)}
+                                className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white ${img.is_primary ? 'text-[#D4A59A]' : 'text-[#B89B8A]'}`}
+                                title="Set as primary"
+                              >
+                                <Star size={14} fill={img.is_primary ? 'currentColor' : 'none'} />
+                              </button>
+                              <button
+                                onClick={() => removeProductImage(img.id)}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-[#B89B8A] hover:text-red-500"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {productImages.length === 0 && (
+                      <p className="text-xs text-[#B89B8A] text-center py-4">
+                        No hay imagenes agregadas
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Variant Images Section (Color-specific images) */}
+                  {uniqueColors.length > 0 && (
+                    <div className="border-t border-[#E8D4C4] pt-4 mt-4">
+                      <h3 className="text-sm font-semibold text-[#6B4423] uppercase tracking-wider mb-3">
+                        Imagenes por color
+                      </h3>
+                      <p className="text-xs text-[#B89B8A] mb-3">
+                        Asigna imagenes especificas para cada color variante
+                      </p>
+
+                      {/* Color selector */}
+                      <div className="flex gap-2 mb-3">
+                        <select
+                          value={selectedColorForImages}
+                          onChange={(e) => setSelectedColorForImages(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-[#FDF8F4] border border-[#E8D4C4] rounded-xl text-sm focus:outline-none focus:border-[#D4A59A]"
+                        >
+                          <option value="">Seleccionar color...</option>
+                          {uniqueColors.map((color) => (
+                            <option key={color} value={color}>
+                              {color}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Add variant image */}
+                      {selectedColorForImages && (
+                        <div className="flex gap-2 mb-3">
+                          <input
+                            type="text"
+                            value={newVariantImageUrl}
+                            onChange={(e) => setNewVariantImageUrl(e.target.value)}
+                            className="flex-1 px-3 py-2 bg-[#FDF8F4] border border-[#E8D4C4] rounded-xl text-sm focus:outline-none focus:border-[#D4A59A]"
+                            placeholder={`URL para ${selectedColorForImages}...`}
+                          />
+                          <button
+                            onClick={addVariantImage}
+                            disabled={!newVariantImageUrl.trim()}
+                            className="px-3 py-2 bg-[#D4A59A] text-white rounded-xl text-sm font-medium hover:bg-[#CDA189] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Show variant images grouped by color */}
+                      {uniqueColors.map((color) => {
+                        const colorImages = getVariantImagesForColor(color);
+                        return (
+                          <div key={color} className="mb-3">
+                            <p className="text-xs font-medium text-[#8B7355] mb-2">{color}</p>
+                            {colorImages.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {colorImages.map((img) => (
+                                  <div key={img.id} className="relative group">
+                                    <img
+                                      src={img.image_url}
+                                      alt={img.alt_text || `${color} image`}
+                                      className="w-20 h-20 rounded-lg object-cover border border-[#E8D4C4]"
+                                    />
+                                    <button
+                                      onClick={() => removeVariantImage(img.id)}
+                                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-[#B89B8A] italic">
+                                Sin imagenes especificas (usara galeria general)
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Column */}

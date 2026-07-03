@@ -382,24 +382,32 @@ export async function fetchProductsWithVariants() {
 
   if (variantsError) throw variantsError;
 
+  const { data: images, error: imagesError } = await supabase
+    .from('product_images')
+    .select('*')
+    .order('sort_order', { ascending: true });
+
+  if (imagesError) throw imagesError;
+
+  const { data: variantImages, error: variantImagesError } = await supabase
+    .from('product_variant_images')
+    .select('*')
+    .order('sort_order', { ascending: true });
+
+  if (variantImagesError) throw variantImagesError;
+
   return (products || []).map((p) => ({
     ...p,
     product_variants: (variants || []).filter(
       (v) => v.product_id === p.id
     ),
+    product_images: (images || []).filter(
+      (i) => i.product_id === p.id
+    ),
+    variant_images: (variantImages || []).filter(
+      (vi) => vi.product_id === p.id
+    ),
   }));
-}
-
-export async function fetchProductImages(productId: number) {
-  const { data, error } = await supabase
-    .from('product_images')
-    .select('*')
-    .eq('product_id', productId)
-    .order('sort_order', { ascending: true });
-
-  if (error) throw error;
-
-  return data;
 }
 
 export async function createProductVariant(
@@ -460,4 +468,203 @@ export async function deleteAllProductVariants(productId: number) {
     .eq('product_id', productId);
 
   if (error) throw error;
+}
+
+// ============================================
+// Product Images Management
+// ============================================
+
+export async function fetchProductImages(productId: number) {
+  const { data, error } = await supabase
+    .from('product_images')
+    .select('*')
+    .eq('product_id', productId)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function createProductImage(
+  productId: number,
+  image: { image_url: string; alt_text?: string; sort_order?: number; is_primary?: boolean; variant_color?: string }
+) {
+  const { data, error } = await supabase
+    .from('product_images')
+    .insert({
+      product_id: productId,
+      image_url: image.image_url,
+      alt_text: image.alt_text || null,
+      sort_order: image.sort_order || 0,
+      is_primary: image.is_primary || false,
+      variant_color: image.variant_color || null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function updateProductImage(
+  imageId: number,
+  updates: Partial<{ image_url: string; alt_text: string; sort_order: number; is_primary: boolean; variant_color: string }>
+) {
+  const { data, error } = await supabase
+    .from('product_images')
+    .update(updates)
+    .eq('id', imageId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function deleteProductImage(imageId: number) {
+  const { error } = await supabase
+    .from('product_images')
+    .delete()
+    .eq('id', imageId);
+
+  if (error) throw error;
+}
+
+export async function setPrimaryImage(productId: number, imageId: number) {
+  // First, unset all primary flags for this product
+  await supabase
+    .from('product_images')
+    .update({ is_primary: false })
+    .eq('product_id', productId);
+
+  // Then set the selected image as primary
+  const { data, error } = await supabase
+    .from('product_images')
+    .update({ is_primary: true })
+    .eq('id', imageId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function reorderProductImages(productId: number, imageIds: number[]) {
+  // Update sort_order for each image
+  const updates = imageIds.map((id, index) => ({
+    id,
+    sort_order: index,
+  }));
+
+  for (const update of updates) {
+    await supabase
+      .from('product_images')
+      .update({ sort_order: update.sort_order })
+      .eq('id', update.id);
+  }
+}
+
+// ============================================
+// Variant Images Management (Color-specific images)
+// ============================================
+
+export async function fetchVariantImages(productId: number) {
+  const { data, error } = await supabase
+    .from('product_variant_images')
+    .select('*')
+    .eq('product_id', productId)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function fetchVariantImagesByColor(productId: number, color: string) {
+  const { data, error } = await supabase
+    .from('product_variant_images')
+    .select('*')
+    .eq('product_id', productId)
+    .eq('variant_color', color)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function createVariantImage(
+  productId: number,
+  image: { variant_color: string; image_url: string; alt_text?: string; sort_order?: number }
+) {
+  const { data, error } = await supabase
+    .from('product_variant_images')
+    .insert({
+      product_id: productId,
+      variant_color: image.variant_color,
+      image_url: image.image_url,
+      alt_text: image.alt_text || null,
+      sort_order: image.sort_order || 0,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function updateVariantImage(
+  imageId: number,
+  updates: Partial<{ variant_color: string; image_url: string; alt_text: string; sort_order: number }>
+) {
+  const { data, error } = await supabase
+    .from('product_variant_images')
+    .update(updates)
+    .eq('id', imageId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function deleteVariantImage(imageId: number) {
+  const { error } = await supabase
+    .from('product_variant_images')
+    .delete()
+    .eq('id', imageId);
+
+  if (error) throw error;
+}
+
+export async function deleteVariantImagesByColor(productId: number, color: string) {
+  const { error } = await supabase
+    .from('product_variant_images')
+    .delete()
+    .eq('product_id', productId)
+    .eq('variant_color', color);
+
+  if (error) throw error;
+}
+
+export async function reorderVariantImages(productId: number, color: string, imageIds: number[]) {
+  const updates = imageIds.map((id, index) => ({
+    id,
+    sort_order: index,
+  }));
+
+  for (const update of updates) {
+    await supabase
+      .from('product_variant_images')
+      .update({ sort_order: update.sort_order })
+      .eq('id', update.id)
+      .eq('product_id', productId)
+      .eq('variant_color', color);
+  }
 }

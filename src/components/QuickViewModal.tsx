@@ -4,9 +4,6 @@ import {
   Heart,
   ShoppingBag,
   Star,
-  ChevronLeft,
-  ChevronRight,
-  ZoomIn,
   Minus,
   Plus,
   Truck,
@@ -15,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Product, ProductVariant } from '../types';
 import { useWishlist } from '../contexts/WishlistContext';
+import ImageGallery from './ImageGallery';
 
 interface QuickViewProps {
   isOpen: boolean;
@@ -50,11 +48,9 @@ export default function QuickViewModal({
   isInStock,
   products,
 }: QuickViewProps) {
-  const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [isZoomed, setIsZoomed] = useState(false);
   const [added, setAdded] = useState(false);
 
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
@@ -86,7 +82,6 @@ export default function QuickViewModal({
       setSelectedColor(displayColors[0] || '');
       setSelectedSize(displaySizes[0] || '');
       setQuantity(1);
-      setSelectedImage(0);
     }
   }, [product, displayColors, displaySizes]);
 
@@ -137,14 +132,6 @@ export default function QuickViewModal({
     }
   };
 
-  const nextImage = () => {
-    setSelectedImage((prev) => (prev + 1) % 1);
-  };
-
-  const prevImage = () => {
-    setSelectedImage((prev) => (prev - 1 + 1) % 1);
-  };
-
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
@@ -169,48 +156,14 @@ export default function QuickViewModal({
         <div className="grid md:grid-cols-2 h-full">
           {/* Image Section */}
           <div className="relative bg-[#FDF8F4]">
-            {/* Main Image */}
-            <div className="relative aspect-[3/4] overflow-hidden">
-              <img
-                src={product.image}
-                alt={product.name}
-                className={`w-full h-full object-cover transition-transform duration-300 ${
-                  isZoomed ? 'scale-150 cursor-zoom-out' : 'cursor-zoom-in'
-                }`}
-                onClick={() => setIsZoomed(!isZoomed)}
-              />
-
-              {/* Navigation arrows - for future multi-image support */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  prevImage();
-                }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors opacity-0 hover:opacity-100"
-              >
-                <ChevronLeft size={20} className="text-[#6B4423]" />
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  nextImage();
-                }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors opacity-0 hover:opacity-100"
-              >
-                <ChevronRight size={20} className="text-[#6B4423]" />
-              </button>
-
-              {/* Zoom hint */}
-              <button
-                onClick={() => setIsZoomed(!isZoomed)}
-                className="absolute bottom-4 right-4 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
-              >
-                <ZoomIn size={18} className="text-[#6B4423]" />
-              </button>
+            <ImageGallery
+              product={product}
+              selectedColor={selectedColor}
+              className="h-full"
+            />
 
               {/* Badges */}
-              <div className="absolute top-4 left-4 flex flex-col gap-2">
+              <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
                 {product.badge && (
                   <span
                     className={`text-xs font-bold tracking-wide px-3 py-1.5 rounded-full ${
@@ -230,7 +183,6 @@ export default function QuickViewModal({
                   </span>
                 )}
               </div>
-            </div>
           </div>
 
           {/* Details Section */}
